@@ -105,6 +105,10 @@ public:
     DescriptorPool& operator=(DescriptorPool&& other) noexcept;
 
     /// @brief Creates a descriptor pool.
+    ///
+    /// Unless @p flags includes eFreeDescriptorSet, the pool tracks the number
+    /// of live sets on the CPU and allocate() enforces @p max_sets even on
+    /// drivers that let the limit slip (lavapipe does).
     /// @param device Device that creates the pool.
     /// @param sizes Number of descriptors of each type.
     /// @param max_sets Maximum number of sets that can be allocated.
@@ -142,13 +146,18 @@ public:
     /// @brief Returns the raw Vulkan descriptor pool handle.
     vk::DescriptorPool handle() const { return pool_; }
 
+    /// @brief Returns the number of sets allocated since the last reset.
+    uint32_t allocated_sets() const { return allocated_sets_; }
+
     /// @brief Allocates one descriptor set. The pool must outlive the returned set.
     /// @param layout Layout of the set.
     /// @param variable_descriptor_count When the layout's last binding has the
     ///        eVariableDescriptorCount flag, the number of descriptors allocated
     ///        for it. 0 to allocate the count declared by the layout.
     /// @return The allocated descriptor set.
-    /// @throws std::runtime_error if the layout is invalid or allocation fails.
+    /// @throws std::runtime_error if the layout is invalid, the pool's set
+    ///         limit is reached (tracked on the CPU for pools without
+    ///         eFreeDescriptorSet) or the driver rejects the allocation.
     DescriptorSet allocate(const DescriptorSetLayout& layout, uint32_t variable_descriptor_count = 0);
 
     /// @brief Allocates one descriptor set from a raw layout handle.
@@ -157,10 +166,13 @@ public:
     ///        eVariableDescriptorCount flag, the number of descriptors allocated
     ///        for it. 0 to allocate the count declared by the layout.
     /// @return The allocated descriptor set.
-    /// @throws std::runtime_error if the layout is invalid or allocation fails.
+    /// @throws std::runtime_error if the layout is invalid, the pool's set
+    ///         limit is reached (tracked on the CPU for pools without
+    ///         eFreeDescriptorSet) or the driver rejects the allocation.
     DescriptorSet allocate(vk::DescriptorSetLayout layout, uint32_t variable_descriptor_count = 0);
 
-    /// @brief Resets the pool and frees all sets allocated from it.
+    /// @brief Resets the pool, frees all sets allocated from it and clears the
+    ///        tracked set count.
     /// @param flags Reset flags.
     void reset(vk::DescriptorPoolResetFlags flags = {});
 
@@ -170,6 +182,11 @@ public:
 private:
     vk::Device device_;
     vk::DescriptorPool pool_;
+    /// @brief True while set counting is valid: without eFreeDescriptorSet,
+    ///        sets are only reclaimed by reset(), so a counter cannot drift.
+    bool track_sets_ = false;
+    uint32_t max_sets_ = 0;
+    uint32_t allocated_sets_ = 0;
 };
 
 /// @brief Non-owning handle to a Vulkan descriptor set with writing helpers.

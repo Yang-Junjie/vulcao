@@ -77,13 +77,19 @@ DescriptorPool::~DescriptorPool() {
 
 DescriptorPool::DescriptorPool(DescriptorPool&& other) noexcept
     : device_(std::exchange(other.device_, vk::Device{})),
-      pool_(std::exchange(other.pool_, vk::DescriptorPool{})) {}
+      pool_(std::exchange(other.pool_, vk::DescriptorPool{})),
+      track_sets_(std::exchange(other.track_sets_, false)),
+      max_sets_(std::exchange(other.max_sets_, 0u)),
+      allocated_sets_(std::exchange(other.allocated_sets_, 0u)) {}
 
 DescriptorPool& DescriptorPool::operator=(DescriptorPool&& other) noexcept {
     if (this != &other) {
         destroy();
         device_ = std::exchange(other.device_, vk::Device{});
         pool_ = std::exchange(other.pool_, vk::DescriptorPool{});
+        track_sets_ = std::exchange(other.track_sets_, false);
+        max_sets_ = std::exchange(other.max_sets_, 0u);
+        allocated_sets_ = std::exchange(other.allocated_sets_, 0u);
     }
     return *this;
 }
@@ -100,6 +106,9 @@ DescriptorPool DescriptorPool::create(vk::Device device,
         .poolSizeCount = static_cast<uint32_t>(sizes.size()),
         .pPoolSizes = sizes.data(),
     });
+    pool.track_sets_ = !(flags & vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
+    pool.max_sets_ = max_sets;
+    pool.allocated_sets_ = 0;
     return pool;
 }
 
@@ -130,9 +139,15 @@ DescriptorSet DescriptorPool::allocate(const DescriptorSetLayout& layout,
 }
 
 DescriptorSet DescriptorPool::allocate(vk::DescriptorSetLayout layout,
-                                       uint32_t variable_descriptor_count) {
+                                        uint32_t variable_descriptor_count) {
     if (!layout)
         throw std::runtime_error("DescriptorPool::allocate: invalid layout");
+
+    // Drivers must reject an allocation past maxSets with
+    // VK_ERROR_OUT_OF_POOL_MEMORY, but lavapipe lets it slip through, so the
+    // wrapper enforces the limit itself whenever it can count reliably.
+    if (track_sets_ && allocated_sets_ >= max_sets_)
+        throw std::runtime_error("DescriptorPool::allocate: max_sets reached, reset the pool");
 
     const vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_info{
         .descriptorSetCount = 1,
@@ -152,11 +167,14 @@ DescriptorSet DescriptorPool::allocate(vk::DescriptorSetLayout layout,
     DescriptorSet result;
     result.device_ = device_;
     result.set_ = set;
+    if (track_sets_)
+        ++allocated_sets_;
     return result;
 }
 
 void DescriptorPool::reset(vk::DescriptorPoolResetFlags flags) {
     device_.resetDescriptorPool(pool_, flags);
+    allocated_sets_ = 0;
 }
 
 void DescriptorPool::destroy() {
@@ -165,6 +183,9 @@ void DescriptorPool::destroy() {
 
     device_ = nullptr;
     pool_ = nullptr;
+    track_sets_ = false;
+    max_sets_ = 0;
+    allocated_sets_ = 0;
 }
 
 const DescriptorSet& DescriptorSet::write_buffer(uint32_t binding,
