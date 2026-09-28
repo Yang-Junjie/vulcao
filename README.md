@@ -61,6 +61,18 @@ cmake -S . -B build
 cmake --build build
 ```
 
+`third_party/` holds the library's own dependencies; GLFW and GLM serve the
+samples only and live under `samples/third_party`. A recursive clone fetches
+everything, but to skip the sample dependencies initialize just what is needed
+(add `third_party/doctest` for the tests) and configure with
+`-DVULCAO_BUILD_SAMPLES=OFF`:
+
+```sh
+git clone https://github.com/<you>/vulcao && cd vulcao
+git submodule update --init \
+    third_party/vk-bootstrap third_party/VulkanMemoryAllocator third_party/spirv-reflect
+```
+
 Options:
 
 - `VULCAO_BUILD_SAMPLES` (default `ON`): build the samples.

@@ -11,6 +11,7 @@ option(VULCAO_BUILD_DOCS "Build API documentation with Doxygen" OFF)
 option(VULCAO_INSTALL "Generate vulcao install rules" ${PROJECT_IS_TOP_LEVEL})
 
 set(VULCAO_THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
+set(VULCAO_SAMPLES_THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/samples/third_party")
 set(VULCAO_CMAKE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(Vulkan REQUIRED)
@@ -119,19 +120,19 @@ if(VULCAO_INSTALL)
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vulcao")
 endif()
 
-# --- windowing and math ------------------------------------------------------
+# --- windowing and math (samples only) ---------------------------------------
 
 if(VULCAO_BUILD_SAMPLES)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-    add_subdirectory("${VULCAO_THIRD_PARTY_DIR}/glfw" "${CMAKE_BINARY_DIR}/third_party/glfw")
+    add_subdirectory("${VULCAO_SAMPLES_THIRD_PARTY_DIR}/glfw" "${CMAKE_BINARY_DIR}/samples/third_party/glfw")
 
     set(GLM_BUILD_LIBRARY OFF CACHE BOOL "" FORCE)
     set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLM_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
-    add_subdirectory("${VULCAO_THIRD_PARTY_DIR}/glm" "${CMAKE_BINARY_DIR}/third_party/glm")
+    add_subdirectory("${VULCAO_SAMPLES_THIRD_PARTY_DIR}/glm" "${CMAKE_BINARY_DIR}/samples/third_party/glm")
 endif()
 
 # --- samples -----------------------------------------------------------------
