@@ -1,8 +1,7 @@
 # Helpers for compiling Slang shaders into SPIR-V.
 #
-# Shared by the samples and the tests. The samples treat slangc as required, the
-# tests treat it as optional so the suite still configures on machines that only
-# have the Vulkan headers and loader.
+# Used by the tests, which treat slangc as optional so the suite still configures
+# on machines that only have the Vulkan headers and loader.
 
 # Sets <out_var> to the slangc executable, or to "<out_var>-NOTFOUND".
 function(vulcao_find_slangc out_var)

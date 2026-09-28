@@ -49,7 +49,7 @@ layouts from SPIR-V reflection.
 
 - CMake 3.24+
 - A C++20 compiler
-- The Vulkan SDK (also provides `slangc`, used by the samples)
+- The Vulkan SDK (also provides `slangc`, used by the tests)
 
 All other dependencies are git submodules.
 
@@ -61,11 +61,9 @@ cmake -S . -B build
 cmake --build build
 ```
 
-`third_party/` holds the library's own dependencies; GLFW and GLM serve the
-samples only and live under `samples/third_party`. A recursive clone fetches
-everything, but to skip the sample dependencies initialize just what is needed
-(add `third_party/doctest` for the tests) and configure with
-`-DVULCAO_BUILD_SAMPLES=OFF`:
+`third_party/` holds the library's own dependencies. A recursive clone fetches
+everything, or initialize just what is needed (add `third_party/doctest` for the
+tests):
 
 ```sh
 git clone https://github.com/<you>/vulcao && cd vulcao
@@ -75,33 +73,13 @@ git submodule update --init \
 
 Options:
 
-- `VULCAO_BUILD_SAMPLES` (default `ON`): build the samples.
 - `VULCAO_BUILD_TESTS` (default `ON` when top level): build and register tests.
 - `VULCAO_INSTALL` (default `ON` when top level): generate install rules.
 
 Run the tests with `ctest --test-dir build`.
 
-## Samples
-
-- `01_hello_triangle`: a CPU-side vertex and index buffer drawn through a full
-  graphics pipeline.
-- `02_uniforms`: the triangle spun by a uniform buffer and descriptor set.
-- `03_compute`: a storage buffer transformed by a compute shader, with the result
-  verified on the CPU. Needs no display, and exits non-zero on a wrong result or
-  on a validation error.
-- `04_offscreen`: a triangle rendered into an image, then read back and checked
-  pixel by pixel. Also needs no display.
-- `05_texture`: a PNG decoded at run time, uploaded as a mipmapped texture and
-  sampled through a combined image sampler onto a quad that fills the window.
-  Opens a window; pass any image path as the first argument to show another one.
-
-```sh
-./build/samples/01_hello_triangle/hello_triangle
-./build/samples/02_uniforms/uniforms
-./build/samples/03_compute/compute
-./build/samples/04_offscreen/offscreen
-./build/samples/05_texture/texture
-```
+The samples live in a separate repository,
+[vulcao-samples](https://github.com/Yang-Junjie/vulcao-samples).
 
 ## Threading model
 
