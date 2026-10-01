@@ -39,6 +39,9 @@ layouts from SPIR-V reflection.
 - Pipelines: `ShaderModule` with SPIR-V reflection, `DescriptorSetLayout/Pool/Set`
   with a batching writer and layout cache, `PipelineLayout`, `Pipeline` with
   graphics/compute factories, specialization constants and `PipelineCache`.
+  Graphics covers vertex, tessellation, geometry and fragment stages, explicit
+  per-attachment blend, multisample state, counted viewports and a raw
+  `vk::GraphicsPipelineCreateInfo` overload for the rest.
 - Ray tracing: `AccelerationStructure` builds bottom and top level
   structures from triangle geometry and instances, with build sizes queries,
   optional internal scratch and a `make_instance_buffer` packer. Ray queries and

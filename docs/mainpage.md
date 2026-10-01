@@ -34,7 +34,10 @@ graphs, bindless registries and renderers remain the application's job.
   acceleration structure descriptor write.
 - **Pipelines** built from [@ref vulcao::ShaderModule] reflection:
   [@ref vulcao::PipelineLayout], [@ref vulcao::Pipeline],
-  [@ref vulcao::DescriptorSetLayout] and [@ref vulcao::PipelineCache].
+  [@ref vulcao::DescriptorSetLayout] and [@ref vulcao::PipelineCache]. Graphics
+  pipelines cover the vertex, tessellation, geometry and fragment stages,
+  explicit blend and multisample state, and a raw
+  `vk::GraphicsPipelineCreateInfo` overload.
 - A global, structured **logging** callback ([@ref vulcao::set_log_callback])
   that also receives validation layer messages.
 

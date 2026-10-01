@@ -56,21 +56,59 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         info.vertex_specialization ? info.vertex_specialization->get() : vk::SpecializationInfo{};
     const vk::SpecializationInfo fragment_specialization =
         info.fragment_specialization ? info.fragment_specialization->get() : vk::SpecializationInfo{};
+    const vk::SpecializationInfo tessellation_control_specialization =
+        info.tessellation_control_specialization
+            ? info.tessellation_control_specialization->get()
+            : vk::SpecializationInfo{};
+    const vk::SpecializationInfo tessellation_evaluation_specialization =
+        info.tessellation_evaluation_specialization
+            ? info.tessellation_evaluation_specialization->get()
+            : vk::SpecializationInfo{};
+    const vk::SpecializationInfo geometry_specialization =
+        info.geometry_specialization ? info.geometry_specialization->get()
+                                     : vk::SpecializationInfo{};
 
-    const std::vector<vk::PipelineShaderStageCreateInfo> stages{
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = info.vertex_shader,
-            .pName = info.vertex_entry,
-            .pSpecializationInfo = info.vertex_specialization ? &vertex_specialization : nullptr,
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = info.fragment_shader,
-            .pName = info.fragment_entry,
-            .pSpecializationInfo = info.fragment_specialization ? &fragment_specialization : nullptr,
-        },
-    };
+    std::vector<vk::PipelineShaderStageCreateInfo> stages;
+    stages.push_back(vk::PipelineShaderStageCreateInfo{
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = info.vertex_shader,
+        .pName = info.vertex_entry,
+        .pSpecializationInfo = info.vertex_specialization ? &vertex_specialization : nullptr,
+    });
+    if (info.tessellation_control_shader)
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eTessellationControl,
+            .module = info.tessellation_control_shader,
+            .pName = info.tessellation_control_entry,
+            .pSpecializationInfo = info.tessellation_control_specialization
+                                        ? &tessellation_control_specialization
+                                        : nullptr,
+        });
+    if (info.tessellation_evaluation_shader)
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eTessellationEvaluation,
+            .module = info.tessellation_evaluation_shader,
+            .pName = info.tessellation_evaluation_entry,
+            .pSpecializationInfo = info.tessellation_evaluation_specialization
+                                        ? &tessellation_evaluation_specialization
+                                        : nullptr,
+        });
+    if (info.geometry_shader)
+        stages.push_back(vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eGeometry,
+            .module = info.geometry_shader,
+            .pName = info.geometry_entry,
+            .pSpecializationInfo = info.geometry_specialization ? &geometry_specialization : nullptr,
+        });
+    stages.push_back(vk::PipelineShaderStageCreateInfo{
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = info.fragment_shader,
+        .pName = info.fragment_entry,
+        .pSpecializationInfo = info.fragment_specialization ? &fragment_specialization : nullptr,
+    });
+
+    const bool has_tessellation =
+        info.tessellation_control_shader || info.tessellation_evaluation_shader;
 
     const vk::PipelineVertexInputStateCreateInfo vertex_input{
         .vertexBindingDescriptionCount = static_cast<uint32_t>(info.vertex_bindings.size()),
@@ -81,24 +119,34 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
 
     const vk::PipelineInputAssemblyStateCreateInfo input_assembly{
         .topology = info.topology,
-        .primitiveRestartEnable = VK_FALSE,
+        .primitiveRestartEnable = info.primitive_restart ? VK_TRUE : VK_FALSE,
+    };
+
+    const vk::PipelineTessellationStateCreateInfo tessellation{
+        .patchControlPoints = info.patch_control_points,
     };
 
     const vk::PipelineViewportStateCreateInfo viewport_state{
-        .viewportCount = 1,
-        .scissorCount = 1,
+        .viewportCount = info.viewport_count,
+        .scissorCount = info.viewport_count,
     };
 
     const vk::PipelineRasterizationStateCreateInfo rasterization{
+        .depthClampEnable = info.depth_clamp_enable ? VK_TRUE : VK_FALSE,
+        .rasterizerDiscardEnable = info.rasterizer_discard ? VK_TRUE : VK_FALSE,
         .polygonMode = info.polygon_mode,
         .cullMode = info.cull_mode,
         .frontFace = info.front_face,
         .depthBiasEnable = info.depth_bias_enable ? VK_TRUE : VK_FALSE,
-        .lineWidth = 1.0f,
+        .lineWidth = info.line_width,
     };
 
     const vk::PipelineMultisampleStateCreateInfo multisample{
         .rasterizationSamples = info.samples,
+        .sampleShadingEnable = info.sample_shading ? VK_TRUE : VK_FALSE,
+        .minSampleShading = info.min_sample_shading,
+        .pSampleMask = info.sample_mask != 0 ? &info.sample_mask : nullptr,
+        .alphaToCoverageEnable = info.alpha_to_coverage ? VK_TRUE : VK_FALSE,
     };
 
     const bool depth_enabled = info.depth_test && info.depth_format != vk::Format::eUndefined;
@@ -115,19 +163,23 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
     };
 
     std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;
-    blend_attachments.reserve(info.color_formats.size());
-    for (size_t i = 0; i < info.color_formats.size(); ++i) {
-        blend_attachments.push_back(vk::PipelineColorBlendAttachmentState{
-            .blendEnable = info.blend ? VK_TRUE : VK_FALSE,
-            .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
-            .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
-            .colorBlendOp = vk::BlendOp::eAdd,
-            .srcAlphaBlendFactor = vk::BlendFactor::eOne,
-            .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-            .alphaBlendOp = vk::BlendOp::eAdd,
-            .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-        });
+    if (!info.color_blend_attachments.empty()) {
+        blend_attachments = info.color_blend_attachments;
+    } else {
+        blend_attachments.reserve(info.color_formats.size());
+        for (size_t i = 0; i < info.color_formats.size(); ++i) {
+            blend_attachments.push_back(vk::PipelineColorBlendAttachmentState{
+                .blendEnable = info.blend ? VK_TRUE : VK_FALSE,
+                .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
+                .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+                .colorBlendOp = vk::BlendOp::eAdd,
+                .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+                .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+                .alphaBlendOp = vk::BlendOp::eAdd,
+                .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                                  vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+            });
+        }
     }
 
     const vk::PipelineColorBlendStateCreateInfo color_blend{
@@ -135,6 +187,7 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .logicOp = info.logic_op,
         .attachmentCount = static_cast<uint32_t>(blend_attachments.size()),
         .pAttachments = blend_attachments.data(),
+        .blendConstants = info.blend_constants,
     };
 
     const std::vector<vk::DynamicState> dynamic_states =
@@ -158,6 +211,7 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .pStages = stages.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
+        .pTessellationState = has_tessellation ? &tessellation : nullptr,
         .pViewportState = &viewport_state,
         .pRasterizationState = &rasterization,
         .pMultisampleState = &multisample,
@@ -172,6 +226,38 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
     pipeline.bind_point_ = vk::PipelineBindPoint::eGraphics;
     const vk::ResultValue<vk::Pipeline> result =
         device.createGraphicsPipeline(cache, create_info);
+    check(result.result, "create graphics pipeline");
+    pipeline.pipeline_ = result.value;
+    return pipeline;
+}
+
+Pipeline Pipeline::create_graphics(vk::Device device,
+                                   const PipelineLayout& layout,
+                                   const vk::GraphicsPipelineCreateInfo& create_info) {
+    return create_graphics_raw(device, {}, layout, create_info);
+}
+
+Pipeline Pipeline::create_graphics(vk::Device device,
+                                   const PipelineCache& cache,
+                                   const PipelineLayout& layout,
+                                   const vk::GraphicsPipelineCreateInfo& create_info) {
+    return create_graphics_raw(device, cache.handle(), layout, create_info);
+}
+
+Pipeline Pipeline::create_graphics_raw(vk::Device device,
+                                       vk::PipelineCache cache,
+                                       const PipelineLayout& layout,
+                                       const vk::GraphicsPipelineCreateInfo& create_info) {
+    if (!layout.valid())
+        throw std::runtime_error("Pipeline::create_graphics: invalid pipeline layout");
+
+    vk::GraphicsPipelineCreateInfo info = create_info;
+    info.layout = layout.handle();
+
+    Pipeline pipeline;
+    pipeline.device_ = device;
+    pipeline.bind_point_ = vk::PipelineBindPoint::eGraphics;
+    const vk::ResultValue<vk::Pipeline> result = device.createGraphicsPipeline(cache, info);
     check(result.result, "create graphics pipeline");
     pipeline.pipeline_ = result.value;
     return pipeline;

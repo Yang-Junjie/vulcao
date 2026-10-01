@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include <vulkan/vulkan.hpp>
@@ -49,6 +50,37 @@ struct GraphicsPipelineInfo {
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes;  ///< Vertex input attributes.
     std::vector<vk::Format> color_formats;                               ///< Color attachment formats.
     vk::Format depth_format = vk::Format::eUndefined;                    ///< Depth attachment format.
+
+    /// @brief Optional tessellation control stage; leave the module empty to skip it.
+    vk::ShaderModule tessellation_control_shader;
+    /// @brief Optional tessellation evaluation stage; leave the module empty to skip it.
+    vk::ShaderModule tessellation_evaluation_shader;
+    /// @brief Optional geometry stage; leave the module empty to skip it.
+    vk::ShaderModule geometry_shader;
+    const char* tessellation_control_entry = "main";       ///< Tessellation control entry point.
+    const char* tessellation_evaluation_entry = "main";    ///< Tessellation evaluation entry point.
+    const char* geometry_entry = "main";                   ///< Geometry entry point.
+    const SpecializationInfo* tessellation_control_specialization = nullptr;    ///< Tess control constants.
+    const SpecializationInfo* tessellation_evaluation_specialization = nullptr; ///< Tess eval constants.
+    const SpecializationInfo* geometry_specialization = nullptr;                ///< Geometry constants.
+    uint32_t patch_control_points = 3;                     ///< Vertices per input patch.
+
+    bool rasterizer_discard = false;                       ///< Discard rasterized fragments.
+    bool depth_clamp_enable = false;                       ///< Clamp depth instead of clipping.
+    bool primitive_restart = false;                        ///< Enable primitive restart.
+    float line_width = 1.0f;                               ///< Rasterized line width.
+
+    /// @brief Per-attachment blend state; when empty it is derived from @ref blend.
+    std::vector<vk::PipelineColorBlendAttachmentState> color_blend_attachments;
+    std::array<float, 4> blend_constants{};                ///< Blend constant color.
+
+    bool sample_shading = false;                           ///< Enable per-sample shading.
+    float min_sample_shading = 0.0f;                       ///< Minimum per-sample shading fraction.
+    bool alpha_to_coverage = false;                        ///< Enable alpha to coverage.
+    /// @brief Sample coverage mask; zero uses the default all-ones mask.
+    vk::SampleMask sample_mask = 0;
+
+    uint32_t viewport_count = 1;                           ///< Number of viewports and scissors.
 };
 
 /// @brief RAII wrapper around a Vulkan pipeline.
@@ -91,6 +123,32 @@ public:
                                     const PipelineCache& cache,
                                     const PipelineLayout& layout,
                                     const GraphicsPipelineInfo& info);
+
+    /// @brief Creates a graphics pipeline from a full Vulkan description.
+    ///
+    /// The escape hatch for state GraphicsPipelineInfo does not cover, such as
+    /// pipeline libraries or subpass descriptions. The @p create_info layout is
+    /// replaced with @p layout.
+    /// @param device Device that creates the pipeline.
+    /// @param layout Pipeline layout.
+    /// @param create_info Full graphics pipeline description.
+    /// @return The created pipeline.
+    /// @throws std::runtime_error if the layout is invalid or creation fails.
+    static Pipeline create_graphics(vk::Device device,
+                                    const PipelineLayout& layout,
+                                    const vk::GraphicsPipelineCreateInfo& create_info);
+
+    /// @brief Creates a graphics pipeline from a full Vulkan description using a cache.
+    /// @param device Device that creates the pipeline.
+    /// @param cache Pipeline cache used to accelerate creation.
+    /// @param layout Pipeline layout.
+    /// @param create_info Full graphics pipeline description.
+    /// @return The created pipeline.
+    /// @throws std::runtime_error if the layout is invalid or creation fails.
+    static Pipeline create_graphics(vk::Device device,
+                                    const PipelineCache& cache,
+                                    const PipelineLayout& layout,
+                                    const vk::GraphicsPipelineCreateInfo& create_info);
 
     /// @brief Creates a compute pipeline.
     /// @param device Device that creates the pipeline.
@@ -142,6 +200,11 @@ private:
                                          vk::PipelineCache cache,
                                          const PipelineLayout& layout,
                                          const GraphicsPipelineInfo& info);
+
+    static Pipeline create_graphics_raw(vk::Device device,
+                                        vk::PipelineCache cache,
+                                        const PipelineLayout& layout,
+                                        const vk::GraphicsPipelineCreateInfo& create_info);
 
     static Pipeline create_compute_impl(vk::Device device,
                                         vk::PipelineCache cache,

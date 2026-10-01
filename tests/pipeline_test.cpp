@@ -448,4 +448,134 @@ TEST_CASE("shader draw parameters can be requested for a vertex index shader") {
     CHECK(capture.errors.empty());
 }
 
+TEST_CASE("graphics pipelines accept explicit blend state and raw descriptions") {
+    VULCAO_REQUIRE_DEVICE();
+
+    const vulcao::test::LogLevelGuard log_level_guard;
+    vulcao::set_log_level(vulcao::LogLevel::warning);
+
+    vulcao::test::ErrorCapture capture;
+
+    vulcao::ContextInfo info;
+    info.headless = true;
+    info.validation = true;
+
+    vulcao::Context context{info};
+    context.initialize();
+
+    const std::filesystem::path dir = vulcao::test::shader_dir();
+    const vulcao::ShaderModule vertex = vulcao::ShaderModule::create_from_file(
+        context.device(), vk::ShaderStageFlagBits::eVertex, dir / "reflection.vert.spv");
+    const vulcao::ShaderModule fragment = vulcao::ShaderModule::create_from_file(
+        context.device(), vk::ShaderStageFlagBits::eFragment, dir / "reflection.frag.spv");
+    REQUIRE(vertex.valid());
+    REQUIRE(fragment.valid());
+
+    const std::array<vulcao::ShaderReflection, 2> reflections{vertex.reflection(),
+                                                              fragment.reflection()};
+    const vulcao::PipelineLayout layout =
+        vulcao::PipelineLayout::create_from_reflection(context.device(), reflections);
+    REQUIRE(layout.valid());
+
+    const vulcao::VertexLayout vertex_layout = vulcao::make_vertex_layout<Vertex>(
+        vertex.reflection(), {offsetof(Vertex, position), offsetof(Vertex, color)});
+
+    // Explicit per-attachment blend must win over the default derived from blend.
+    const vulcao::GraphicsPipelineInfo pipeline_info{
+        .vertex_shader = vertex.handle(),
+        .fragment_shader = fragment.handle(),
+        .vertex_entry = "vertMain",
+        .fragment_entry = "fragMain",
+        .topology = vk::PrimitiveTopology::eTriangleStrip,
+        .vertex_bindings = vertex_layout.bindings,
+        .vertex_attributes = vertex_layout.attributes,
+        .color_formats = {vk::Format::eB8G8R8A8Unorm},
+        .primitive_restart = true,
+        .color_blend_attachments = {vk::PipelineColorBlendAttachmentState{
+            .blendEnable = VK_TRUE,
+            .srcColorBlendFactor = vk::BlendFactor::eOne,
+            .dstColorBlendFactor = vk::BlendFactor::eZero,
+            .colorBlendOp = vk::BlendOp::eAdd,
+            .colorWriteMask = vk::ColorComponentFlagBits::eR,
+        }},
+        .blend_constants = {0.1f, 0.2f, 0.3f, 0.4f},
+    };
+
+    const vulcao::Pipeline pipeline =
+        vulcao::Pipeline::create_graphics(context.device(), layout, pipeline_info);
+    CHECK(pipeline.valid());
+
+    // The raw overload takes a full Vulkan description and borrows the layout.
+    const std::array<vk::PipelineShaderStageCreateInfo, 2> stages{{
+        {.stage = vk::ShaderStageFlagBits::eVertex,
+         .module = vertex.handle(),
+         .pName = "vertMain"},
+        {.stage = vk::ShaderStageFlagBits::eFragment,
+         .module = fragment.handle(),
+         .pName = "fragMain"},
+    }};
+    const vk::PipelineVertexInputStateCreateInfo vertex_input{
+        .vertexBindingDescriptionCount = static_cast<uint32_t>(vertex_layout.bindings.size()),
+        .pVertexBindingDescriptions = vertex_layout.bindings.data(),
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_layout.attributes.size()),
+        .pVertexAttributeDescriptions = vertex_layout.attributes.data(),
+    };
+    const vk::PipelineInputAssemblyStateCreateInfo input_assembly{
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
+    const vk::PipelineViewportStateCreateInfo viewport_state{.viewportCount = 1, .scissorCount = 1};
+    const vk::PipelineRasterizationStateCreateInfo rasterization{
+        .polygonMode = vk::PolygonMode::eFill,
+        .frontFace = vk::FrontFace::eCounterClockwise,
+        .lineWidth = 1.0f,
+    };
+    const vk::PipelineMultisampleStateCreateInfo multisample{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
+    const std::array<vk::PipelineColorBlendAttachmentState, 1> blend_attachments{{
+        vk::PipelineColorBlendAttachmentState{
+            .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                              vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA},
+    }};
+    const vk::PipelineColorBlendStateCreateInfo color_blend{
+        .attachmentCount = 1,
+        .pAttachments = blend_attachments.data(),
+    };
+    const std::array<vk::DynamicState, 2> dynamic_states{vk::DynamicState::eViewport,
+                                                         vk::DynamicState::eScissor};
+    const vk::PipelineDynamicStateCreateInfo dynamic_state{
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data(),
+    };
+    const std::array<vk::Format, 1> color_formats{vk::Format::eB8G8R8A8Unorm};
+    const vk::PipelineRenderingCreateInfo rendering{
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = color_formats.data(),
+    };
+    const vk::GraphicsPipelineCreateInfo raw{
+        .pNext = &rendering,
+        .stageCount = static_cast<uint32_t>(stages.size()),
+        .pStages = stages.data(),
+        .pVertexInputState = &vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState = &viewport_state,
+        .pRasterizationState = &rasterization,
+        .pMultisampleState = &multisample,
+        .pColorBlendState = &color_blend,
+        .pDynamicState = &dynamic_state,
+    };
+
+    const vulcao::Pipeline raw_pipeline =
+        vulcao::Pipeline::create_graphics(context.device(), layout, raw);
+    CHECK(raw_pipeline.valid());
+
+    CHECK_THROWS_AS(
+        vulcao::Pipeline::create_graphics(context.device(), vulcao::PipelineLayout{}, raw),
+        std::runtime_error);
+
+    for (const std::string& error : capture.errors)
+        MESSAGE("logged error: ", error);
+    CHECK(capture.errors.empty());
+}
+
 #endif
