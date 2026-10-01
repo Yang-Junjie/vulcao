@@ -38,6 +38,7 @@ add_library(vulcao STATIC
     src/command_pool.cpp
     src/context.cpp
     src/descriptor_set.cpp
+    src/event.cpp
     src/fence.cpp
     src/frame_manager.cpp
     src/image.cpp

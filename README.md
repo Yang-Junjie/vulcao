@@ -20,15 +20,18 @@ layouts from SPIR-V reflection.
   runs uploads on the dedicated transfer queue (when requested) and reports
   completion through a timeline semaphore; destinations are created with
   `Context::transfer_sharing_families()` so no ownership ceremony is needed.
-- Synchronization: `Fence`, binary and timeline `Semaphore`, `QueryPool` and a
+- Synchronization: `Fence`, binary and timeline `Semaphore`, `Event`, `QueryPool` and a
   `FrameManager` that owns frames in flight, swapchain acquire and present,
   plus per-slot `DeletionQueue`s: `defer_destroy` retires a resource once the
   GPU is done with the frames that referenced it.
 - Recording: `CommandBuffer` with layout transitions (including swapchain
-  `transition_to_render`/`transition_to_present` helpers), copies, mipmaps,
-  draws, dispatches, queries, dynamic state, debug labels and queue family
-  ownership transfers (release/acquire), plus `color_attachment`/
-  `depth_attachment` builders and a full-extent `begin_rendering` convenience.
+  `transition_to_render`/`transition_to_present` helpers), single and multi-region
+  copies and blits, resolve, mipmaps, clears and `clear_attachments`, draws
+  (including the indirect-count variants), dispatches, queries, events,
+  set/reset/wait, dynamic state (single and counted viewports/scissors), debug
+  labels and queue family ownership transfers (release/acquire), plus
+  `color_attachment`/`depth_attachment` builders and a full-extent
+  `begin_rendering` convenience.
 - Descriptors: `DescriptorPool::create_for_bindings` sizes a pool from a
   reflected set's bindings (e.g. one set per frame in flight) without
   hand-counted pool sizes. Writes cover buffers, combined and separate

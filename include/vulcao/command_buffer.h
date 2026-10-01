@@ -271,6 +271,14 @@ public:
                                vk::DeviceSize src_offset = 0,
                                vk::DeviceSize dst_offset = 0);
 
+    /// @brief Copies several regions between buffers.
+    /// @param src Source buffer.
+    /// @param dst Destination buffer.
+    /// @param regions Regions to copy.
+    /// @return This command buffer.
+    CommandBuffer& copy_buffer(vk::Buffer src, vk::Buffer dst,
+                               std::span<const vk::BufferCopy> regions);
+
     /// @brief Copies a buffer into an image using raw handles.
     /// @param src Source buffer.
     /// @param dst Destination image, must be in TransferDst layout.
@@ -278,6 +286,14 @@ public:
     /// @return This command buffer.
     CommandBuffer& copy_buffer_to_image(vk::Buffer src, vk::Image dst,
                                         const vk::BufferImageCopy& region);
+
+    /// @brief Copies several regions of a buffer into an image.
+    /// @param src Source buffer.
+    /// @param dst Destination image, must be in TransferDst layout.
+    /// @param regions Regions to copy.
+    /// @return This command buffer.
+    CommandBuffer& copy_buffer_to_image(vk::Buffer src, vk::Image dst,
+                                        std::span<const vk::BufferImageCopy> regions);
 
     /// @brief Copies a buffer into an image using raw handles.
     /// @param src Source buffer.
@@ -308,6 +324,14 @@ public:
     /// @return This command buffer.
     CommandBuffer& copy_image_to_buffer(vk::Buffer dst, vk::Image src,
                                         const vk::BufferImageCopy& region);
+
+    /// @brief Copies several regions of an image into a buffer.
+    /// @param dst Destination buffer.
+    /// @param src Source image, must be in TransferSrc layout.
+    /// @param regions Regions to copy.
+    /// @return This command buffer.
+    CommandBuffer& copy_image_to_buffer(vk::Buffer dst, vk::Image src,
+                                        std::span<const vk::BufferImageCopy> regions);
 
     /// @brief Copies an image into a buffer using raw handles.
     /// @param dst Destination buffer.
@@ -360,6 +384,19 @@ public:
                               vk::ImageLayout dst_layout,
                               const vk::ImageCopy& region);
 
+    /// @brief Copies several regions from one image into another.
+    /// @param src Source image.
+    /// @param src_layout Layout of the source image.
+    /// @param dst Destination image.
+    /// @param dst_layout Layout of the destination image.
+    /// @param regions Regions to copy.
+    /// @return This command buffer.
+    CommandBuffer& copy_image(vk::Image src,
+                              vk::ImageLayout src_layout,
+                              vk::Image dst,
+                              vk::ImageLayout dst_layout,
+                              std::span<const vk::ImageCopy> regions);
+
     /// @brief Blits one image into another using raw handles.
     /// @param src Source image.
     /// @param src_layout Layout of the source image.
@@ -373,6 +410,21 @@ public:
                               vk::Image dst,
                               vk::ImageLayout dst_layout,
                               const vk::ImageBlit& region,
+                              vk::Filter filter = vk::Filter::eLinear);
+
+    /// @brief Blits several regions from one image into another.
+    /// @param src Source image.
+    /// @param src_layout Layout of the source image.
+    /// @param dst Destination image.
+    /// @param dst_layout Layout of the destination image.
+    /// @param regions Regions to blit.
+    /// @param filter Filter used when scaling.
+    /// @return This command buffer.
+    CommandBuffer& blit_image(vk::Image src,
+                              vk::ImageLayout src_layout,
+                              vk::Image dst,
+                              vk::ImageLayout dst_layout,
+                              std::span<const vk::ImageBlit> regions,
                               vk::Filter filter = vk::Filter::eLinear);
 
     /// @brief Clears a color image using raw handles.
@@ -716,6 +768,100 @@ public:
     /// @param offset Byte offset of the dispatch parameters.
     /// @return This command buffer.
     CommandBuffer& dispatch_indirect(vk::Buffer buffer, vk::DeviceSize offset);
+
+    /// @brief Resolves a multisampled image into a single-sampled image.
+    /// @param src Source image.
+    /// @param src_layout Layout of the source image.
+    /// @param dst Destination image.
+    /// @param dst_layout Layout of the destination image.
+    /// @param regions Regions to resolve.
+    /// @return This command buffer.
+    CommandBuffer& resolve_image(vk::Image src,
+                                 vk::ImageLayout src_layout,
+                                 vk::Image dst,
+                                 vk::ImageLayout dst_layout,
+                                 std::span<const vk::ImageResolve> regions);
+
+    /// @brief Resolves a multisampled image into a single-sampled image.
+    /// @param src Source image.
+    /// @param src_layout Layout of the source image.
+    /// @param dst Destination image.
+    /// @param dst_layout Layout of the destination image.
+    /// @param region Region to resolve.
+    /// @return This command buffer.
+    CommandBuffer& resolve_image(vk::Image src,
+                                 vk::ImageLayout src_layout,
+                                 vk::Image dst,
+                                 vk::ImageLayout dst_layout,
+                                 const vk::ImageResolve& region);
+
+    /// @brief Clears regions of the bound attachments inside a render pass.
+    /// @param attachments Attachments to clear.
+    /// @param rects Rectangles to clear.
+    /// @return This command buffer.
+    CommandBuffer& clear_attachments(std::span<const vk::ClearAttachment> attachments,
+                                     std::span<const vk::ClearRect> rects);
+
+    /// @brief Records an indirect draw whose count is read from a buffer.
+    /// @param buffer Buffer holding the draw parameters.
+    /// @param offset Byte offset of the draw parameters.
+    /// @param count_buffer Buffer holding the draw count.
+    /// @param count_offset Byte offset of the draw count.
+    /// @param max_draw_count Upper bound on the number of draws.
+    /// @param stride Byte stride between draw parameters.
+    /// @return This command buffer.
+    CommandBuffer& draw_indirect_count(vk::Buffer buffer,
+                                       vk::DeviceSize offset,
+                                       vk::Buffer count_buffer,
+                                       vk::DeviceSize count_offset,
+                                       uint32_t max_draw_count,
+                                       uint32_t stride);
+
+    /// @brief Records an indirect indexed draw whose count is read from a buffer.
+    /// @param buffer Buffer holding the draw parameters.
+    /// @param offset Byte offset of the draw parameters.
+    /// @param count_buffer Buffer holding the draw count.
+    /// @param count_offset Byte offset of the draw count.
+    /// @param max_draw_count Upper bound on the number of draws.
+    /// @param stride Byte stride between draw parameters.
+    /// @return This command buffer.
+    CommandBuffer& draw_indexed_indirect_count(vk::Buffer buffer,
+                                               vk::DeviceSize offset,
+                                               vk::Buffer count_buffer,
+                                               vk::DeviceSize count_offset,
+                                               uint32_t max_draw_count,
+                                               uint32_t stride);
+
+    /// @brief Sets several viewports starting at index 0.
+    /// @param viewports Viewports to set.
+    /// @return This command buffer.
+    CommandBuffer& set_viewport_with_count(std::span<const vk::Viewport> viewports);
+
+    /// @brief Sets several scissors starting at index 0.
+    /// @param scissors Scissors to set.
+    /// @return This command buffer.
+    CommandBuffer& set_scissor_with_count(std::span<const vk::Rect2D> scissors);
+
+    /// @brief Sets an event, releasing the dependencies in @p dependency when reached.
+    /// @param event Event to set.
+    /// @param dependency Stage and access scopes the event releases.
+    /// @return This command buffer.
+    CommandBuffer& set_event(vk::Event event, const vk::DependencyInfo& dependency);
+
+    /// @brief Resets an event to the unsignaled state.
+    /// @param event Event to reset.
+    /// @param stage Stage the reset happens after.
+    /// @return This command buffer.
+    CommandBuffer& reset_event(vk::Event event, vk::PipelineStageFlags2 stage);
+
+    /// @brief Waits for an event before letting @p dst_stage proceed.
+    /// @param event Event to wait for.
+    /// @param src_stage Stage that must have happened when the event was set.
+    /// @param dst_stage Stage that is blocked until the event is set.
+    /// @return This command buffer.
+    CommandBuffer& wait_event(const vk::Event& event,
+                              vk::PipelineStageFlags2 src_stage,
+                              vk::PipelineStageFlags2 dst_stage);
 
     /// @brief Builds a bottom level acceleration structure from triangle geometry.
     ///

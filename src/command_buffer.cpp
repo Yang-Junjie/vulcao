@@ -366,9 +366,24 @@ CommandBuffer& CommandBuffer::copy_buffer(vk::Buffer src,
     return *this;
 }
 
+CommandBuffer& CommandBuffer::copy_buffer(vk::Buffer src,
+                                          vk::Buffer dst,
+                                          std::span<const vk::BufferCopy> regions) {
+    cmd_.copyBuffer(src, dst, static_cast<uint32_t>(regions.size()), regions.data());
+    return *this;
+}
+
 CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src, vk::Image dst,
                                                    const vk::BufferImageCopy& region) {
     cmd_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, region);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src,
+                                                   vk::Image dst,
+                                                   std::span<const vk::BufferImageCopy> regions) {
+    cmd_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal,
+                           static_cast<uint32_t>(regions.size()), regions.data());
     return *this;
 }
 
@@ -397,6 +412,14 @@ CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src,
 CommandBuffer& CommandBuffer::copy_image_to_buffer(vk::Buffer dst, vk::Image src,
                                                    const vk::BufferImageCopy& region) {
     cmd_.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, dst, region);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::copy_image_to_buffer(vk::Buffer dst,
+                                                   vk::Image src,
+                                                   std::span<const vk::BufferImageCopy> regions) {
+    cmd_.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, dst,
+                           static_cast<uint32_t>(regions.size()), regions.data());
     return *this;
 }
 
@@ -493,6 +516,16 @@ CommandBuffer& CommandBuffer::copy_image(vk::Image src,
     return *this;
 }
 
+CommandBuffer& CommandBuffer::copy_image(vk::Image src,
+                                         vk::ImageLayout src_layout,
+                                         vk::Image dst,
+                                         vk::ImageLayout dst_layout,
+                                         std::span<const vk::ImageCopy> regions) {
+    cmd_.copyImage(src, src_layout, dst, dst_layout, static_cast<uint32_t>(regions.size()),
+                   regions.data());
+    return *this;
+}
+
 CommandBuffer& CommandBuffer::blit_image(vk::Image src,
                                          vk::ImageLayout src_layout,
                                          vk::Image dst,
@@ -500,6 +533,17 @@ CommandBuffer& CommandBuffer::blit_image(vk::Image src,
                                          const vk::ImageBlit& region,
                                          vk::Filter filter) {
     cmd_.blitImage(src, src_layout, dst, dst_layout, region, filter);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::blit_image(vk::Image src,
+                                         vk::ImageLayout src_layout,
+                                         vk::Image dst,
+                                         vk::ImageLayout dst_layout,
+                                         std::span<const vk::ImageBlit> regions,
+                                         vk::Filter filter) {
+    cmd_.blitImage(src, src_layout, dst, dst_layout, static_cast<uint32_t>(regions.size()),
+                   regions.data(), filter);
     return *this;
 }
 
@@ -769,6 +813,86 @@ CommandBuffer& CommandBuffer::dispatch(uint32_t group_count_x,
 
 CommandBuffer& CommandBuffer::dispatch_indirect(vk::Buffer buffer, vk::DeviceSize offset) {
     cmd_.dispatchIndirect(buffer, offset);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::resolve_image(vk::Image src,
+                                            vk::ImageLayout src_layout,
+                                            vk::Image dst,
+                                            vk::ImageLayout dst_layout,
+                                            std::span<const vk::ImageResolve> regions) {
+    cmd_.resolveImage(src, src_layout, dst, dst_layout, static_cast<uint32_t>(regions.size()),
+                      regions.data());
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::resolve_image(vk::Image src,
+                                            vk::ImageLayout src_layout,
+                                            vk::Image dst,
+                                            vk::ImageLayout dst_layout,
+                                            const vk::ImageResolve& region) {
+    return resolve_image(src, src_layout, dst, dst_layout, std::span(&region, 1));
+}
+
+CommandBuffer& CommandBuffer::clear_attachments(std::span<const vk::ClearAttachment> attachments,
+                                                std::span<const vk::ClearRect> rects) {
+    cmd_.clearAttachments(static_cast<uint32_t>(attachments.size()), attachments.data(),
+                          static_cast<uint32_t>(rects.size()), rects.data());
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::draw_indirect_count(vk::Buffer buffer,
+                                                  vk::DeviceSize offset,
+                                                  vk::Buffer count_buffer,
+                                                  vk::DeviceSize count_offset,
+                                                  uint32_t max_draw_count,
+                                                  uint32_t stride) {
+    cmd_.drawIndirectCount(buffer, offset, count_buffer, count_offset, max_draw_count, stride);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::draw_indexed_indirect_count(vk::Buffer buffer,
+                                                          vk::DeviceSize offset,
+                                                          vk::Buffer count_buffer,
+                                                          vk::DeviceSize count_offset,
+                                                          uint32_t max_draw_count,
+                                                          uint32_t stride) {
+    cmd_.drawIndexedIndirectCount(buffer, offset, count_buffer, count_offset, max_draw_count, stride);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::set_viewport_with_count(std::span<const vk::Viewport> viewports) {
+    cmd_.setViewportWithCount(static_cast<uint32_t>(viewports.size()), viewports.data());
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::set_scissor_with_count(std::span<const vk::Rect2D> scissors) {
+    cmd_.setScissorWithCount(static_cast<uint32_t>(scissors.size()), scissors.data());
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::set_event(vk::Event event, const vk::DependencyInfo& dependency) {
+    cmd_.setEvent2(event, dependency);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::reset_event(vk::Event event, vk::PipelineStageFlags2 stage) {
+    cmd_.resetEvent2(event, stage);
+    return *this;
+}
+
+CommandBuffer& CommandBuffer::wait_event(const vk::Event& event,
+                                         vk::PipelineStageFlags2 src_stage,
+                                         vk::PipelineStageFlags2 dst_stage) {
+    const vk::MemoryBarrier2 barrier{
+        .srcStageMask = src_stage,
+        .dstStageMask = dst_stage,
+    };
+    const vk::DependencyInfo dependency{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &barrier,
+    };
+    cmd_.waitEvents2(event, dependency);
     return *this;
 }
 

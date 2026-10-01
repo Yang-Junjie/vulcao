@@ -22,10 +22,12 @@ graphs, bindless registries and renderers remain the application's job.
   staging buffer, and expose the full `vk::BufferImageCopy` region for
   row-pitched data.
 - **Synchronization** primitives: [@ref vulcao::Fence], [@ref vulcao::Semaphore]
-  (binary and timeline) and [@ref vulcao::QueryPool].
+  (binary and timeline), [@ref vulcao::Event] and [@ref vulcao::QueryPool].
 - **Recording** through [@ref vulcao::CommandBuffer], including layout
-  transitions, copies, mipmap generation, draws, dispatches, dynamic state,
-  debug labels and queue family ownership transfers.
+  transitions, single and multi-region copies and blits, resolve, mipmap
+  generation, attachment clears, draws (with the indirect-count variants),
+  dispatches, events, dynamic state, debug labels and queue family ownership
+  transfers.
 - **Ray tracing** through [@ref vulcao::AccelerationStructure], which builds
   bottom and top level structures from triangle geometry and instances, plus the
   `DeviceFeatures::ray_query` / `ray_tracing_pipeline` switches and the
