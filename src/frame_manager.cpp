@@ -118,15 +118,16 @@ void FrameManager::end_frame(Frame& frame) {
         .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
     };
 
-    context_.graphics_queue().submit2(vk::SubmitInfo2{
-                                          .waitSemaphoreInfoCount = 1,
-                                          .pWaitSemaphoreInfos = &wait_info,
-                                          .commandBufferInfoCount = 1,
-                                          .pCommandBufferInfos = &command_info,
-                                          .signalSemaphoreInfoCount = 1,
-                                          .pSignalSemaphoreInfos = &signal_info,
-                                      },
-                                      slot.in_flight_fence.handle());
+    context_.submit(context_.graphics_queue(),
+                    vk::SubmitInfo2{
+                        .waitSemaphoreInfoCount = 1,
+                        .pWaitSemaphoreInfos = &wait_info,
+                        .commandBufferInfoCount = 1,
+                        .pCommandBufferInfos = &command_info,
+                        .signalSemaphoreInfoCount = 1,
+                        .pSignalSemaphoreInfos = &signal_info,
+                    },
+                    slot.in_flight_fence.handle());
 
     frame.active = false;
 }

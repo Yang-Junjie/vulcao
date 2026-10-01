@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.hpp>
 #include <VkBootstrap.h>
 
-namespace vulcao {
+namespace vulcao::detail {
 
 /// @brief Throws std::runtime_error if the Vulkan result is not success.
 /// @param result Result to check.

@@ -44,21 +44,12 @@ public:
     /// filled with empty layouts so set N always maps to the shaders' set N.
     /// @param device Device that creates the layout.
     /// @param reflections Reflection data of the stages.
-    /// @return The created pipeline layout, owning the merged set layouts.
-    static PipelineLayout create_from_reflection(vk::Device device,
-                                                 std::span<const ShaderReflection> reflections);
-
-    /// @brief Creates a pipeline layout using descriptor set layouts from a cache.
-    ///
-    /// The set layouts are indexed by set number: sets the shaders skip are
-    /// filled with empty layouts so set N always maps to the shaders' set N.
-    /// @param device Device that creates the layout.
-    /// @param cache Cache that owns the descriptor set layouts; it must outlive the pipeline layout.
-    /// @param reflections Reflection data of the stages.
+    /// @param cache Optional cache that owns the descriptor set layouts; when
+    ///        given it must outlive the pipeline layout, and the layout owns none.
     /// @return The created pipeline layout.
     static PipelineLayout create_from_reflection(vk::Device device,
-                                                 DescriptorSetLayoutCache& cache,
-                                                 std::span<const ShaderReflection> reflections);
+                                                 std::span<const ShaderReflection> reflections,
+                                                 DescriptorSetLayoutCache* cache = nullptr);
 
     /// @brief Returns true if the layout holds a valid handle.
     bool valid() const { return static_cast<bool>(layout_); }

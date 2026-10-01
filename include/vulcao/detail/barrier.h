@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace vulcao {
+namespace vulcao::detail {
 
 /// @brief Returns the pipeline stages that access an image in a layout.
 /// @param layout Image layout.

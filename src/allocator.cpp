@@ -1,6 +1,6 @@
 #include "vulcao/allocator.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 
 #include <utility>
 
@@ -36,7 +36,7 @@ void Allocator::create(vk::Instance instance,
     if (buffer_device_address)
         create_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
-    check(static_cast<vk::Result>(vmaCreateAllocator(&create_info, &allocator_)), "create allocator");
+    detail::check(static_cast<vk::Result>(vmaCreateAllocator(&create_info, &allocator_)), "create allocator");
     device_ = device;
 }
 

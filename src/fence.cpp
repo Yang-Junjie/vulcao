@@ -1,6 +1,6 @@
 #include "vulcao/fence.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 
 #include <stdexcept>
 #include <string>
@@ -33,7 +33,7 @@ Fence Fence::create(vk::Device device, vk::FenceCreateFlags flags) {
 }
 
 void Fence::wait(uint64_t timeout) const {
-    check(device_.waitForFences(fence_, VK_TRUE, timeout), "wait for fence");
+    detail::check(device_.waitForFences(fence_, VK_TRUE, timeout), "wait for fence");
 }
 
 bool Fence::wait_for(uint64_t timeout) const {

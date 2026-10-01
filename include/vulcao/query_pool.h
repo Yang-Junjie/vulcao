@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <vulkan/vulkan.hpp>
 
@@ -50,6 +51,29 @@ public:
 
     /// @brief Returns the type of the queries.
     vk::QueryType type() const { return type_; }
+
+    /// @brief Resets a range of queries from the host.
+    /// @param first_query First query to reset.
+    /// @param query_count Number of queries to reset.
+    void reset(uint32_t first_query, uint32_t query_count) const;
+
+    /// @brief Reads one 64 bit query result.
+    /// @param query Query index.
+    /// @param flags Query result flags; add eWait to block until the result is ready.
+    /// @return The query result.
+    /// @throws std::runtime_error if the result is unavailable or the read fails.
+    uint64_t result(uint32_t query,
+                    vk::QueryResultFlags flags = vk::QueryResultFlagBits::e64) const;
+
+    /// @brief Reads a range of 64 bit query results.
+    /// @param first_query First query to read.
+    /// @param query_count Number of queries to read.
+    /// @param flags Query result flags; add eWait to block until the results are ready.
+    /// @return One result per query.
+    /// @throws std::runtime_error if a result is unavailable or the read fails.
+    std::vector<uint64_t> results(uint32_t first_query,
+                                  uint32_t query_count,
+                                  vk::QueryResultFlags flags = vk::QueryResultFlagBits::e64) const;
 
     /// @brief Destroys the query pool and resets the wrapper.
     void destroy();

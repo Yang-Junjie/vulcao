@@ -44,6 +44,9 @@ graphs, bindless registries and renderers remain the application's job.
 
 ## Building
 
+vulcao requires Vulkan 1.3: it records with synchronization2 and renders with
+dynamic rendering.
+
 ```sh
 git clone --recursive <repository>
 cmake -S . -B build

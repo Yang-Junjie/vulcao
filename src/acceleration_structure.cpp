@@ -1,6 +1,6 @@
 #include "vulcao/acceleration_structure.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 #include "vulcao/command_buffer.h"
 #include "vulcao/context.h"
 
@@ -276,7 +276,7 @@ void AccelerationStructure::create_internal(Allocator& allocator,
         .type = static_cast<VkAccelerationStructureTypeKHR>(type),
     };
     VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
-    check(static_cast<vk::Result>(
+    detail::check(static_cast<vk::Result>(
               create_acceleration_structure_fn(device_)(device_, &create_info, nullptr, &handle)),
           "create acceleration structure");
     structure_ = vk::AccelerationStructureKHR{handle};

@@ -46,11 +46,6 @@ struct PipelineReflection {
 /// @throws std::runtime_error if the SPIR-V cannot be reflected.
 ShaderReflection reflect_spirv(std::span<const uint32_t> spirv);
 
-/// @brief Merges the reflection data of several shader stages.
-/// @param reflections Reflection data to merge.
-/// @return Merged descriptor sets and push constant ranges.
-PipelineReflection merge_reflections(std::span<const ShaderReflection> reflections);
-
 /// @brief Sets the descriptor count of one binding in a reflected set.
 ///
 /// Reflected runtime arrays (unsized descriptor arrays, the building block of

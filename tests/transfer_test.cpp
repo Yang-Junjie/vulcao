@@ -276,7 +276,7 @@ TEST_CASE("async upload round trips a buffer through the transfer queue") {
 
     vulcao::Fence done = vulcao::Fence::create(context.device());
     context.submit(context.graphics_queue(), cmd.handle(), context.transfer_timeline(),
-                   second.value, vk::PipelineStageFlagBits::eTransfer, done.handle());
+                   second.value, vk::PipelineStageFlagBits2::eTransfer, done.handle());
     done.wait();
 
     readback_stage.invalidate(0, buffer.size());
@@ -327,7 +327,7 @@ TEST_CASE("async upload moves an image to the graphics family with its final lay
 
     vulcao::Fence done = vulcao::Fence::create(context.device());
     context.submit(context.graphics_queue(), cmd.handle(), context.transfer_timeline(),
-                   upload.value, vk::PipelineStageFlagBits::eTransfer, done.handle());
+                   upload.value, vk::PipelineStageFlagBits2::eTransfer, done.handle());
     done.wait();
 
     readback_stage.invalidate(0, pixels.size());
@@ -405,7 +405,7 @@ TEST_CASE("async uploads can be in flight at the same time") {
 
     vulcao::Fence done = vulcao::Fence::create(context.device());
     context.submit(context.graphics_queue(), cmd.handle(), context.transfer_timeline(),
-                   second_upload.value, vk::PipelineStageFlagBits::eTransfer, done.handle());
+                   second_upload.value, vk::PipelineStageFlagBits2::eTransfer, done.handle());
     done.wait();
 
     first_stage.invalidate(0, first.size());

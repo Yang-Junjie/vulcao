@@ -1,6 +1,6 @@
 #include "vulcao/buffer.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 #include "vulcao/context.h"
 
 #include <stdexcept>
@@ -70,7 +70,7 @@ Buffer Buffer::create(Allocator& allocator,
     allocation_info.flags = flags;
 
     const VkBufferCreateInfo raw_create_info = create_info;
-    check(static_cast<vk::Result>(vmaCreateBuffer(buffer.allocator_, &raw_create_info, &allocation_info,
+    detail::check(static_cast<vk::Result>(vmaCreateBuffer(buffer.allocator_, &raw_create_info, &allocation_info,
                                                   &buffer.buffer_, &buffer.allocation_, &buffer.info_)),
           "create buffer");
     buffer.size_ = size;
@@ -113,7 +113,7 @@ void* Buffer::map() {
         throw std::runtime_error("Buffer::map: buffer is not host visible");
 
     if (!mapped_) {
-        check(static_cast<vk::Result>(vmaMapMemory(allocator_, allocation_, &mapped_data_)), "map buffer");
+        detail::check(static_cast<vk::Result>(vmaMapMemory(allocator_, allocation_, &mapped_data_)), "map buffer");
         mapped_ = true;
     }
     return mapped_data_;
@@ -128,11 +128,11 @@ void Buffer::unmap() {
 }
 
 void Buffer::flush(vk::DeviceSize offset, vk::DeviceSize size) {
-    check(static_cast<vk::Result>(vmaFlushAllocation(allocator_, allocation_, offset, size)), "flush buffer");
+    detail::check(static_cast<vk::Result>(vmaFlushAllocation(allocator_, allocation_, offset, size)), "flush buffer");
 }
 
 void Buffer::invalidate(vk::DeviceSize offset, vk::DeviceSize size) {
-    check(static_cast<vk::Result>(vmaInvalidateAllocation(allocator_, allocation_, offset, size)),
+    detail::check(static_cast<vk::Result>(vmaInvalidateAllocation(allocator_, allocation_, offset, size)),
           "invalidate buffer");
 }
 
@@ -144,7 +144,7 @@ void Buffer::write_bytes(const void* data, vk::DeviceSize size, vk::DeviceSize o
     if (!host_visible_)
         throw std::runtime_error("Buffer::write_bytes: buffer is not host visible, use Context::upload");
 
-    check(static_cast<vk::Result>(vmaCopyMemoryToAllocation(allocator_, data, allocation_, offset, size)),
+    detail::check(static_cast<vk::Result>(vmaCopyMemoryToAllocation(allocator_, data, allocation_, offset, size)),
           "write buffer");
 }
 

@@ -1,6 +1,6 @@
 #include "vulcao/command_buffer.h"
 
-#include "vulcao/barrier.h"
+#include "vulcao/detail/barrier.h"
 #include "vulcao/buffer.h"
 #include "vulcao/image.h"
 #include "vulcao/pipeline.h"
@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace vulcao {
 namespace {
@@ -18,6 +19,46 @@ vk::ImageSubresourceLayers single_layer(const vk::ImageSubresourceRange& range) 
         .mipLevel = 0,
         .baseArrayLayer = 0,
         .layerCount = 1,
+    };
+}
+
+// The public API keeps the compact vk::*Copy/vk::ImageBlit structs; the copy
+// commands themselves are recorded with their synchronization2 era *2 variants.
+vk::BufferCopy2 to_copy2(const vk::BufferCopy& region) {
+    return vk::BufferCopy2{
+        .srcOffset = region.srcOffset,
+        .dstOffset = region.dstOffset,
+        .size = region.size,
+    };
+}
+
+vk::BufferImageCopy2 to_copy2(const vk::BufferImageCopy& region) {
+    return vk::BufferImageCopy2{
+        .bufferOffset = region.bufferOffset,
+        .bufferRowLength = region.bufferRowLength,
+        .bufferImageHeight = region.bufferImageHeight,
+        .imageSubresource = region.imageSubresource,
+        .imageOffset = region.imageOffset,
+        .imageExtent = region.imageExtent,
+    };
+}
+
+vk::ImageCopy2 to_copy2(const vk::ImageCopy& region) {
+    return vk::ImageCopy2{
+        .srcSubresource = region.srcSubresource,
+        .srcOffset = region.srcOffset,
+        .dstSubresource = region.dstSubresource,
+        .dstOffset = region.dstOffset,
+        .extent = region.extent,
+    };
+}
+
+vk::ImageBlit2 to_copy2(const vk::ImageBlit& region) {
+    return vk::ImageBlit2{
+        .srcSubresource = region.srcSubresource,
+        .srcOffsets = region.srcOffsets,
+        .dstSubresource = region.dstSubresource,
+        .dstOffsets = region.dstOffsets,
     };
 }
 
@@ -235,13 +276,13 @@ CommandBuffer& CommandBuffer::transition(vk::Image image,
                                          uint32_t src_queue_family,
                                          uint32_t dst_queue_family) {
     if (!src_stage)
-        src_stage = stage_for_layout(old_layout);
+        src_stage = detail::stage_for_layout(old_layout);
     if (!src_access)
-        src_access = access_for_layout(old_layout);
+        src_access = detail::access_for_layout(old_layout);
     if (!dst_stage)
-        dst_stage = stage_for_layout(new_layout);
+        dst_stage = detail::stage_for_layout(new_layout);
     if (!dst_access)
-        dst_access = access_for_layout(new_layout);
+        dst_access = detail::access_for_layout(new_layout);
 
     const vk::ImageMemoryBarrier2 image_barrier{
         .srcStageMask = src_stage,
@@ -297,9 +338,9 @@ CommandBuffer& CommandBuffer::release_image(Image& image,
                                             vk::AccessFlags2 src_access) {
     const vk::ImageLayout layout = image.layout();
     if (!src_stage)
-        src_stage = stage_for_layout(layout);
+        src_stage = detail::stage_for_layout(layout);
     if (!src_access)
-        src_access = access_for_layout(layout);
+        src_access = detail::access_for_layout(layout);
 
     const vk::ImageMemoryBarrier2 image_barrier{
         .srcStageMask = src_stage,
@@ -328,9 +369,9 @@ CommandBuffer& CommandBuffer::acquire_image(Image& image,
                                             vk::AccessFlags2 dst_access) {
     const vk::ImageLayout layout = image.layout();
     if (!dst_stage)
-        dst_stage = stage_for_layout(layout);
+        dst_stage = detail::stage_for_layout(layout);
     if (!dst_access)
-        dst_access = access_for_layout(layout);
+        dst_access = detail::access_for_layout(layout);
 
     const vk::ImageMemoryBarrier2 image_barrier{
         .srcStageMask = vk::PipelineStageFlagBits2::eNone,
@@ -357,33 +398,65 @@ CommandBuffer& CommandBuffer::copy_buffer(vk::Buffer src,
                                           vk::DeviceSize size,
                                           vk::DeviceSize src_offset,
                                           vk::DeviceSize dst_offset) {
-    const vk::BufferCopy region{
+    const vk::BufferCopy2 region = to_copy2(vk::BufferCopy{
         .srcOffset = src_offset,
         .dstOffset = dst_offset,
         .size = size,
-    };
-    cmd_.copyBuffer(src, dst, region);
+    });
+    cmd_.copyBuffer2(vk::CopyBufferInfo2{
+        .srcBuffer = src,
+        .dstBuffer = dst,
+        .regionCount = 1,
+        .pRegions = &region,
+    });
     return *this;
 }
 
 CommandBuffer& CommandBuffer::copy_buffer(vk::Buffer src,
                                           vk::Buffer dst,
                                           std::span<const vk::BufferCopy> regions) {
-    cmd_.copyBuffer(src, dst, static_cast<uint32_t>(regions.size()), regions.data());
+    std::vector<vk::BufferCopy2> copied;
+    copied.reserve(regions.size());
+    for (const vk::BufferCopy& region : regions)
+        copied.push_back(to_copy2(region));
+
+    cmd_.copyBuffer2(vk::CopyBufferInfo2{
+        .srcBuffer = src,
+        .dstBuffer = dst,
+        .regionCount = static_cast<uint32_t>(copied.size()),
+        .pRegions = copied.data(),
+    });
     return *this;
 }
 
 CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src, vk::Image dst,
                                                    const vk::BufferImageCopy& region) {
-    cmd_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, region);
+    const vk::BufferImageCopy2 copied = to_copy2(region);
+    cmd_.copyBufferToImage2(vk::CopyBufferToImageInfo2{
+        .srcBuffer = src,
+        .dstImage = dst,
+        .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+        .regionCount = 1,
+        .pRegions = &copied,
+    });
     return *this;
 }
 
 CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src,
                                                    vk::Image dst,
                                                    std::span<const vk::BufferImageCopy> regions) {
-    cmd_.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal,
-                           static_cast<uint32_t>(regions.size()), regions.data());
+    std::vector<vk::BufferImageCopy2> copied;
+    copied.reserve(regions.size());
+    for (const vk::BufferImageCopy& region : regions)
+        copied.push_back(to_copy2(region));
+
+    cmd_.copyBufferToImage2(vk::CopyBufferToImageInfo2{
+        .srcBuffer = src,
+        .dstImage = dst,
+        .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+        .regionCount = static_cast<uint32_t>(copied.size()),
+        .pRegions = copied.data(),
+    });
     return *this;
 }
 
@@ -411,15 +484,32 @@ CommandBuffer& CommandBuffer::copy_buffer_to_image(vk::Buffer src,
 
 CommandBuffer& CommandBuffer::copy_image_to_buffer(vk::Buffer dst, vk::Image src,
                                                    const vk::BufferImageCopy& region) {
-    cmd_.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, dst, region);
+    const vk::BufferImageCopy2 copied = to_copy2(region);
+    cmd_.copyImageToBuffer2(vk::CopyImageToBufferInfo2{
+        .srcImage = src,
+        .srcImageLayout = vk::ImageLayout::eTransferSrcOptimal,
+        .dstBuffer = dst,
+        .regionCount = 1,
+        .pRegions = &copied,
+    });
     return *this;
 }
 
 CommandBuffer& CommandBuffer::copy_image_to_buffer(vk::Buffer dst,
                                                    vk::Image src,
                                                    std::span<const vk::BufferImageCopy> regions) {
-    cmd_.copyImageToBuffer(src, vk::ImageLayout::eTransferSrcOptimal, dst,
-                           static_cast<uint32_t>(regions.size()), regions.data());
+    std::vector<vk::BufferImageCopy2> copied;
+    copied.reserve(regions.size());
+    for (const vk::BufferImageCopy& region : regions)
+        copied.push_back(to_copy2(region));
+
+    cmd_.copyImageToBuffer2(vk::CopyImageToBufferInfo2{
+        .srcImage = src,
+        .srcImageLayout = vk::ImageLayout::eTransferSrcOptimal,
+        .dstBuffer = dst,
+        .regionCount = static_cast<uint32_t>(copied.size()),
+        .pRegions = copied.data(),
+    });
     return *this;
 }
 
@@ -512,7 +602,15 @@ CommandBuffer& CommandBuffer::copy_image(vk::Image src,
                                          vk::Image dst,
                                          vk::ImageLayout dst_layout,
                                          const vk::ImageCopy& region) {
-    cmd_.copyImage(src, src_layout, dst, dst_layout, region);
+    const vk::ImageCopy2 copied = to_copy2(region);
+    cmd_.copyImage2(vk::CopyImageInfo2{
+        .srcImage = src,
+        .srcImageLayout = src_layout,
+        .dstImage = dst,
+        .dstImageLayout = dst_layout,
+        .regionCount = 1,
+        .pRegions = &copied,
+    });
     return *this;
 }
 
@@ -521,8 +619,19 @@ CommandBuffer& CommandBuffer::copy_image(vk::Image src,
                                          vk::Image dst,
                                          vk::ImageLayout dst_layout,
                                          std::span<const vk::ImageCopy> regions) {
-    cmd_.copyImage(src, src_layout, dst, dst_layout, static_cast<uint32_t>(regions.size()),
-                   regions.data());
+    std::vector<vk::ImageCopy2> copied;
+    copied.reserve(regions.size());
+    for (const vk::ImageCopy& region : regions)
+        copied.push_back(to_copy2(region));
+
+    cmd_.copyImage2(vk::CopyImageInfo2{
+        .srcImage = src,
+        .srcImageLayout = src_layout,
+        .dstImage = dst,
+        .dstImageLayout = dst_layout,
+        .regionCount = static_cast<uint32_t>(copied.size()),
+        .pRegions = copied.data(),
+    });
     return *this;
 }
 
@@ -532,7 +641,16 @@ CommandBuffer& CommandBuffer::blit_image(vk::Image src,
                                          vk::ImageLayout dst_layout,
                                          const vk::ImageBlit& region,
                                          vk::Filter filter) {
-    cmd_.blitImage(src, src_layout, dst, dst_layout, region, filter);
+    const vk::ImageBlit2 copied = to_copy2(region);
+    cmd_.blitImage2(vk::BlitImageInfo2{
+        .srcImage = src,
+        .srcImageLayout = src_layout,
+        .dstImage = dst,
+        .dstImageLayout = dst_layout,
+        .regionCount = 1,
+        .pRegions = &copied,
+        .filter = filter,
+    });
     return *this;
 }
 
@@ -542,8 +660,20 @@ CommandBuffer& CommandBuffer::blit_image(vk::Image src,
                                          vk::ImageLayout dst_layout,
                                          std::span<const vk::ImageBlit> regions,
                                          vk::Filter filter) {
-    cmd_.blitImage(src, src_layout, dst, dst_layout, static_cast<uint32_t>(regions.size()),
-                   regions.data(), filter);
+    std::vector<vk::ImageBlit2> copied;
+    copied.reserve(regions.size());
+    for (const vk::ImageBlit& region : regions)
+        copied.push_back(to_copy2(region));
+
+    cmd_.blitImage2(vk::BlitImageInfo2{
+        .srcImage = src,
+        .srcImageLayout = src_layout,
+        .dstImage = dst,
+        .dstImageLayout = dst_layout,
+        .regionCount = static_cast<uint32_t>(copied.size()),
+        .pRegions = copied.data(),
+        .filter = filter,
+    });
     return *this;
 }
 
@@ -646,8 +776,7 @@ CommandBuffer& CommandBuffer::bind_index_buffer(const Buffer& buffer,
 }
 
 CommandBuffer& CommandBuffer::set_viewport(const vk::Viewport& viewport) {
-    cmd_.setViewport(0, viewport);
-    return *this;
+    return set_viewport_with_count(std::span(&viewport, 1));
 }
 
 CommandBuffer& CommandBuffer::set_viewport(vk::Extent2D extent) {
@@ -662,8 +791,7 @@ CommandBuffer& CommandBuffer::set_viewport(vk::Extent2D extent) {
 }
 
 CommandBuffer& CommandBuffer::set_scissor(const vk::Rect2D& scissor) {
-    cmd_.setScissor(0, scissor);
-    return *this;
+    return set_scissor_with_count(std::span(&scissor, 1));
 }
 
 CommandBuffer& CommandBuffer::set_scissor(vk::Extent2D extent) {

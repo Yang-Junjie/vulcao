@@ -207,7 +207,7 @@ TEST_CASE("pipeline layout merges reflections and tracks owned set layouts") {
     // Cached variant: the cache owns the set layouts, so the layout owns none.
     vulcao::DescriptorSetLayoutCache cache{context.device()};
     const vulcao::PipelineLayout cached =
-        vulcao::PipelineLayout::create_from_reflection(context.device(), cache, reflections);
+        vulcao::PipelineLayout::create_from_reflection(context.device(), reflections, &cache);
     CHECK(cached.valid());
     CHECK(cached.set_count() == 1);
     CHECK(cached.set_layouts().empty());
@@ -273,8 +273,8 @@ TEST_CASE("pipeline layout from reflection fills gaps between used sets") {
     // Cached variant goes through the same gap filling.
     vulcao::DescriptorSetLayoutCache cache{context.device()};
     const vulcao::PipelineLayout cached =
-        vulcao::PipelineLayout::create_from_reflection(context.device(), cache,
-                                                       std::span(&reflection, 1));
+        vulcao::PipelineLayout::create_from_reflection(context.device(), std::span(&reflection, 1),
+                                                       &cache);
     REQUIRE(cached.valid());
     CHECK(cached.set_count() == 3);
     CHECK(cached.set_layout(2) != VK_NULL_HANDLE);
@@ -312,7 +312,7 @@ TEST_CASE("compute pipelines build from reflected layouts, with and without a ca
     vulcao::PipelineCache cache = vulcao::PipelineCache::create(context.device());
     REQUIRE(cache.valid());
     const vulcao::Pipeline cached = vulcao::Pipeline::create_compute(
-        context.device(), cache, layout, compute, "computeMain");
+        context.device(), layout, compute, "computeMain", &cache);
     CHECK(cached.valid());
 
     // The serialized cache round trips into a new cache object.

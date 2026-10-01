@@ -67,7 +67,10 @@ layouts from SPIR-V reflection.
 
 - CMake 3.24+
 - A C++20 compiler
-- The Vulkan SDK (also provides `slangc`, used by the tests)
+- A Vulkan 1.3 device and headers. vulcao always requires 1.3, because it
+  records with synchronization2 (`vk::SubmitInfo2`, `vkCmdPipelineBarrier2`)
+  and renders with dynamic rendering. The Vulkan SDK also provides `slangc`,
+  used by the tests.
 
 All other dependencies are git submodules.
 

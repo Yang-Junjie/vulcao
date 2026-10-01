@@ -50,13 +50,20 @@ struct DeviceFeatures {
     bool storage_buffer_8bit = false;          ///< Enable 8 bit types in storage buffers.
     bool storage_buffer_16bit = false;         ///< Enable 16 bit types in storage buffers.
     bool shader_subgroup_extended_types = false; ///< Enable the extended subgroup operation types.
+    /// @brief Enable QueryPool::reset from the host.
+    bool host_query_reset = false;
 };
+
+/// @brief The Vulkan version vulcao targets.
+///
+/// vulcao always requires Vulkan 1.3: it records with synchronization2 and
+/// renders with dynamic rendering. Lower versions are not supported.
+inline constexpr uint32_t kApiVersion = VK_API_VERSION_1_3;
 
 /// @brief Creation parameters of a Context.
 struct ContextInfo {
     std::string app_name = "vulcao";                     ///< Application name reported to the driver.
     uint32_t app_version = VK_MAKE_VERSION(1, 0, 0);     ///< Application version reported to the driver.
-    uint32_t api_version = VK_API_VERSION_1_3;           ///< Vulkan version to require.
     /// @brief Enable the validation layers and the debug messenger.
 #ifdef NDEBUG
     bool validation = false;
@@ -202,10 +209,10 @@ public:
     /// @param cmd Command buffer to submit.
     void submit_and_wait(vk::CommandBuffer cmd);
 
-    /// @brief Submits commands on the graphics queue without waiting.
+    /// @brief Submits synchronization2 commands on the graphics queue without waiting.
     /// @param info Submission parameters.
     /// @param fence Optional fence signaled when the submission completes.
-    void submit(const vk::SubmitInfo& info, vk::Fence fence = {});
+    void submit(const vk::SubmitInfo2& info, vk::Fence fence = {});
 
     /// @brief Submits a command buffer on the graphics queue without waiting.
     /// @param cmd Command buffer to submit.
@@ -229,11 +236,11 @@ public:
     /// @return A context-owned fence signaled when the submission completes.
     vk::Fence submit_pooled(vk::CommandBuffer cmd);
 
-    /// @brief Submits commands on an arbitrary queue without waiting.
+    /// @brief Submits synchronization2 commands on an arbitrary queue without waiting.
     /// @param queue Queue to submit to.
     /// @param info Submission parameters.
     /// @param fence Optional fence signaled when the submission completes.
-    void submit(vk::Queue queue, const vk::SubmitInfo& info, vk::Fence fence = {});
+    void submit(vk::Queue queue, const vk::SubmitInfo2& info, vk::Fence fence = {});
 
     /// @brief Submits a command buffer that signals a timeline semaphore on completion.
     /// @param queue Queue to submit to.
@@ -258,7 +265,7 @@ public:
                 vk::CommandBuffer cmd,
                 const Semaphore& wait_semaphore,
                 uint64_t wait_value,
-                vk::PipelineStageFlags wait_stage,
+                vk::PipelineStageFlags2 wait_stage,
                 vk::Fence fence = {});
 
     /// @brief Records one-time commands with the internal command buffer, submits and waits.
@@ -656,7 +663,6 @@ private:
     vk::PhysicalDevice physical_device_;
     PhysicalDeviceInfo physical_device_info_;
     vk::Device device_;
-    uint32_t api_version_ = VK_API_VERSION_1_3;
     vk::Queue graphics_queue_;
     vk::Queue present_queue_;
     vk::Queue compute_queue_;

@@ -1,6 +1,6 @@
 #include "vulcao/image.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 
 #include <array>
 #include <stdexcept>
@@ -105,7 +105,7 @@ Image Image::create(Allocator& allocator, const vk::ImageCreateInfo& image_info)
     allocation_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
     const VkImageCreateInfo raw_image_info = image_info;
-    check(static_cast<vk::Result>(vmaCreateImage(image.allocator_, &raw_image_info, &allocation_info,
+    detail::check(static_cast<vk::Result>(vmaCreateImage(image.allocator_, &raw_image_info, &allocation_info,
                                                  &image.image_, &image.allocation_, nullptr)),
           "create image");
 

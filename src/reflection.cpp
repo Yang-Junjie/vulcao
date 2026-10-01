@@ -158,6 +158,8 @@ ShaderReflection reflect_spirv(std::span<const uint32_t> spirv) {
     return reflection;
 }
 
+namespace detail {
+
 PipelineReflection merge_reflections(std::span<const ShaderReflection> reflections) {
     PipelineReflection merged;
 
@@ -216,6 +218,8 @@ PipelineReflection merge_reflections(std::span<const ShaderReflection> reflectio
               });
 
     return merged;
+}
+
 }
 
 bool set_binding_count(DescriptorSetLayoutInfo& set, uint32_t binding, uint32_t count) {

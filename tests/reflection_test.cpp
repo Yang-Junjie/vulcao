@@ -2,6 +2,7 @@
 
 #include <doctest/doctest.h>
 
+#include <vulcao/detail/reflection.h>
 #include <vulcao/reflection.h>
 
 namespace {
@@ -46,7 +47,7 @@ TEST_CASE("merge_reflections merges binding and push constant stage flags") {
         make_stage(vk::ShaderStageFlagBits::eFragment, 0, 0, 64),
     };
 
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     REQUIRE(merged.sets.size() == 1);
     REQUIRE(merged.sets.front().bindings.size() == 1);
@@ -64,7 +65,7 @@ TEST_CASE("merge_reflections keeps distinct bindings and ranges") {
     vulcao::ShaderReflection fragment = make_stage(vk::ShaderStageFlagBits::eFragment, 1, 64, 16);
 
     const std::array<vulcao::ShaderReflection, 2> stages{vertex, fragment};
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     REQUIRE(merged.sets.size() == 1);
     REQUIRE(merged.sets.front().bindings.size() == 2);
@@ -81,7 +82,7 @@ TEST_CASE("merge_reflections folds overlapping push constant ranges into their u
         make_stage(vk::ShaderStageFlagBits::eFragment, 1, 32, 128),
     };
 
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     REQUIRE(merged.push_constants.size() == 1);
     CHECK(merged.push_constants.front().offset == 0);
@@ -99,7 +100,7 @@ TEST_CASE("merge_reflections folds chains of overlapping push constant ranges") 
         make_stage(vk::ShaderStageFlagBits::eCompute, 2, 140, 160),
     };
 
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     REQUIRE(merged.push_constants.size() == 1);
     CHECK(merged.push_constants.front().offset == 0);
@@ -116,7 +117,7 @@ TEST_CASE("merge_reflections keeps adjacent push constant ranges separate") {
         make_stage(vk::ShaderStageFlagBits::eFragment, 1, 0, 64),
     };
 
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     // Sorted by offset.
     REQUIRE(merged.push_constants.size() == 2);
@@ -166,7 +167,7 @@ TEST_CASE("merge_reflections sorts sets and bindings") {
     });
 
     const std::array<vulcao::ShaderReflection, 1> stages{reflection};
-    const vulcao::PipelineReflection merged = vulcao::merge_reflections(stages);
+    const vulcao::PipelineReflection merged = vulcao::detail::merge_reflections(stages);
 
     REQUIRE(merged.sets.size() == 2);
     CHECK(merged.sets[0].set == 0);

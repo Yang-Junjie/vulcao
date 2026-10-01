@@ -1,10 +1,11 @@
 #include "vulcao/pipeline.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 #include "vulcao/pipeline_cache.h"
 #include "vulcao/pipeline_layout.h"
 #include "vulcao/shader_module.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -32,15 +33,9 @@ Pipeline& Pipeline::operator=(Pipeline&& other) noexcept {
 
 Pipeline Pipeline::create_graphics(vk::Device device,
                                    const PipelineLayout& layout,
-                                   const GraphicsPipelineInfo& info) {
-    return create_graphics_impl(device, {}, layout, info);
-}
-
-Pipeline Pipeline::create_graphics(vk::Device device,
-                                   const PipelineCache& cache,
-                                   const PipelineLayout& layout,
-                                   const GraphicsPipelineInfo& info) {
-    return create_graphics_impl(device, cache.handle(), layout, info);
+                                   const GraphicsPipelineInfo& info,
+                                   const PipelineCache* cache) {
+    return create_graphics_impl(device, cache ? cache->handle() : vk::PipelineCache{}, layout, info);
 }
 
 Pipeline Pipeline::create_graphics_impl(vk::Device device,
@@ -126,9 +121,22 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .patchControlPoints = info.patch_control_points,
     };
 
+    const std::vector<vk::DynamicState> dynamic_states =
+        info.dynamic_states.empty()
+            ? std::vector<vk::DynamicState>{vk::DynamicState::eViewportWithCount,
+                                            vk::DynamicState::eScissorWithCount}
+            : info.dynamic_states;
+    const auto has_dynamic_state = [&](vk::DynamicState state) {
+        return std::find(dynamic_states.begin(), dynamic_states.end(), state) != dynamic_states.end();
+    };
+
+    // The counted dynamic states take over the viewport and scissor, so the
+    // static counts must be zero for them.
     const vk::PipelineViewportStateCreateInfo viewport_state{
-        .viewportCount = info.viewport_count,
-        .scissorCount = info.viewport_count,
+        .viewportCount =
+            has_dynamic_state(vk::DynamicState::eViewportWithCount) ? 0u : info.viewport_count,
+        .scissorCount =
+            has_dynamic_state(vk::DynamicState::eScissorWithCount) ? 0u : info.viewport_count,
     };
 
     const vk::PipelineRasterizationStateCreateInfo rasterization{
@@ -190,10 +198,6 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .blendConstants = info.blend_constants,
     };
 
-    const std::vector<vk::DynamicState> dynamic_states =
-        info.dynamic_states.empty()
-            ? std::vector<vk::DynamicState>{vk::DynamicState::eViewport, vk::DynamicState::eScissor}
-            : info.dynamic_states;
     const vk::PipelineDynamicStateCreateInfo dynamic_state{
         .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
         .pDynamicStates = dynamic_states.data(),
@@ -226,22 +230,17 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
     pipeline.bind_point_ = vk::PipelineBindPoint::eGraphics;
     const vk::ResultValue<vk::Pipeline> result =
         device.createGraphicsPipeline(cache, create_info);
-    check(result.result, "create graphics pipeline");
+    detail::check(result.result, "create graphics pipeline");
     pipeline.pipeline_ = result.value;
     return pipeline;
 }
 
 Pipeline Pipeline::create_graphics(vk::Device device,
                                    const PipelineLayout& layout,
-                                   const vk::GraphicsPipelineCreateInfo& create_info) {
-    return create_graphics_raw(device, {}, layout, create_info);
-}
-
-Pipeline Pipeline::create_graphics(vk::Device device,
-                                   const PipelineCache& cache,
-                                   const PipelineLayout& layout,
-                                   const vk::GraphicsPipelineCreateInfo& create_info) {
-    return create_graphics_raw(device, cache.handle(), layout, create_info);
+                                   const vk::GraphicsPipelineCreateInfo& create_info,
+                                   const PipelineCache* cache) {
+    return create_graphics_raw(device, cache ? cache->handle() : vk::PipelineCache{}, layout,
+                               create_info);
 }
 
 Pipeline Pipeline::create_graphics_raw(vk::Device device,
@@ -258,7 +257,7 @@ Pipeline Pipeline::create_graphics_raw(vk::Device device,
     pipeline.device_ = device;
     pipeline.bind_point_ = vk::PipelineBindPoint::eGraphics;
     const vk::ResultValue<vk::Pipeline> result = device.createGraphicsPipeline(cache, info);
-    check(result.result, "create graphics pipeline");
+    detail::check(result.result, "create graphics pipeline");
     pipeline.pipeline_ = result.value;
     return pipeline;
 }
@@ -267,17 +266,10 @@ Pipeline Pipeline::create_compute(vk::Device device,
                                   const PipelineLayout& layout,
                                   const ShaderModule& shader,
                                   const char* entry,
+                                  const PipelineCache* cache,
                                   const SpecializationInfo* specialization) {
-    return create_compute_impl(device, {}, layout, shader, entry, specialization);
-}
-
-Pipeline Pipeline::create_compute(vk::Device device,
-                                  const PipelineCache& cache,
-                                  const PipelineLayout& layout,
-                                  const ShaderModule& shader,
-                                  const char* entry,
-                                  const SpecializationInfo* specialization) {
-    return create_compute_impl(device, cache.handle(), layout, shader, entry, specialization);
+    return create_compute_impl(device, cache ? cache->handle() : vk::PipelineCache{}, layout, shader,
+                               entry, specialization);
 }
 
 Pipeline Pipeline::create_compute_impl(vk::Device device,
@@ -308,7 +300,7 @@ Pipeline Pipeline::create_compute_impl(vk::Device device,
     pipeline.device_ = device;
     pipeline.bind_point_ = vk::PipelineBindPoint::eCompute;
     const vk::ResultValue<vk::Pipeline> result = device.createComputePipeline(cache, create_info);
-    check(result.result, "create compute pipeline");
+    detail::check(result.result, "create compute pipeline");
     pipeline.pipeline_ = result.value;
     return pipeline;
 }

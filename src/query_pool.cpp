@@ -1,5 +1,7 @@
 #include "vulcao/query_pool.h"
 
+#include "vulcao/detail/check.h"
+
 #include <utility>
 
 namespace vulcao {
@@ -39,6 +41,28 @@ QueryPool QueryPool::create(vk::Device device,
     query_pool.query_count_ = query_count;
     query_pool.type_ = type;
     return query_pool;
+}
+
+void QueryPool::reset(uint32_t first_query, uint32_t query_count) const {
+    device_.resetQueryPool(pool_, first_query, query_count);
+}
+
+uint64_t QueryPool::result(uint32_t query, vk::QueryResultFlags flags) const {
+    return results(query, 1, flags).front();
+}
+
+std::vector<uint64_t> QueryPool::results(uint32_t first_query,
+                                         uint32_t query_count,
+                                         vk::QueryResultFlags flags) const {
+    std::vector<uint64_t> values(query_count);
+    if (query_count == 0)
+        return values;
+
+    detail::check(device_.getQueryPoolResults(pool_, first_query, query_count,
+                                              values.size() * sizeof(uint64_t), values.data(),
+                                              sizeof(uint64_t), flags),
+                  "get query pool results");
+    return values;
 }
 
 void QueryPool::destroy() {

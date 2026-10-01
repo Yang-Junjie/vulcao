@@ -1,8 +1,8 @@
-#include "vulcao/barrier.h"
+#include "vulcao/detail/barrier.h"
 
 namespace vulcao {
 
-vk::PipelineStageFlags2 stage_for_layout(vk::ImageLayout layout) {
+vk::PipelineStageFlags2 detail::stage_for_layout(vk::ImageLayout layout) {
     switch (layout) {
         case vk::ImageLayout::eUndefined:
             return vk::PipelineStageFlagBits2::eTopOfPipe;
@@ -33,7 +33,7 @@ vk::PipelineStageFlags2 stage_for_layout(vk::ImageLayout layout) {
     }
 }
 
-vk::AccessFlags2 access_for_layout(vk::ImageLayout layout) {
+vk::AccessFlags2 detail::access_for_layout(vk::ImageLayout layout) {
     switch (layout) {
         case vk::ImageLayout::eUndefined:
         case vk::ImageLayout::ePresentSrcKHR:

@@ -11,6 +11,7 @@
 #include <vulcao/image.h>
 #include <vulcao/image_view.h>
 #include <vulcao/log.h>
+#include <vulcao/query_pool.h>
 #include <vulcao/rendering.h>
 
 #include "common.h"
@@ -240,6 +241,44 @@ TEST_CASE("clear_attachments clears a region of the attachment") {
     CHECK(pixel(1, 1)[0] == 255);
     CHECK(pixel(2, 2)[0] == 0);
     CHECK(pixel(3, 3)[0] == 0);
+
+    context.wait_idle();
+    CHECK(capture.errors.empty());
+}
+
+TEST_CASE("query pool timestamps are read back from the host") {
+    VULCAO_REQUIRE_DEVICE();
+
+    const vulcao::test::LogLevelGuard log_level_guard;
+    vulcao::set_log_level(vulcao::LogLevel::warning);
+
+    vulcao::test::ErrorCapture capture;
+
+    vulcao::ContextInfo info;
+    info.headless = true;
+    info.validation = true;
+    info.device_features.host_query_reset = true;
+
+    vulcao::Context context{info};
+    context.initialize();
+
+    vulcao::QueryPool pool =
+        vulcao::QueryPool::create(context.device(), vk::QueryType::eTimestamp, 2);
+    REQUIRE(pool.valid());
+    CHECK(pool.query_count() == 2);
+
+    context.immediate([&](vulcao::CommandBuffer& cmd) {
+        cmd.reset_query_pool(pool.handle(), 0, 2);
+        cmd.write_timestamp(pool.handle(), vk::PipelineStageFlagBits2::eTopOfPipe, 0);
+        cmd.write_timestamp(pool.handle(), vk::PipelineStageFlagBits2::eBottomOfPipe, 1);
+    });
+
+    const std::vector<uint64_t> values =
+        pool.results(0, 2, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+    REQUIRE(values.size() == 2);
+    CHECK(values[1] >= values[0]);
+
+    CHECK_NOTHROW(pool.reset(0, 2));
 
     context.wait_idle();
     CHECK(capture.errors.empty());

@@ -1,6 +1,6 @@
 #include "vulcao/semaphore.h"
 
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 
 #include <utility>
 
@@ -64,7 +64,7 @@ void Semaphore::wait(uint64_t value, uint64_t timeout) const {
         .pSemaphores = &semaphore_,
         .pValues = &value,
     };
-    check(device_.waitSemaphores(wait_info, timeout), "wait semaphore");
+    detail::check(device_.waitSemaphores(wait_info, timeout), "wait semaphore");
 }
 
 void Semaphore::destroy() {

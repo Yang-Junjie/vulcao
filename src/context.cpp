@@ -1,6 +1,6 @@
 #include "vulcao/context.h"
 #include "vulcao/buffer.h"
-#include "vulcao/check.h"
+#include "vulcao/detail/check.h"
 #include "vulcao/image.h"
 
 #include <algorithm>
@@ -142,14 +142,12 @@ void Context::wait_idle() {
 }
 
 void Context::create_instance(const ContextInfo& info) {
-    api_version_ = info.api_version;
-
     vkb::InstanceBuilder builder;
     builder.set_app_name(info.app_name.c_str())
         .set_app_version(info.app_version)
         .set_headless(info.headless)
-        .require_api_version(VK_VERSION_MAJOR(info.api_version), VK_VERSION_MINOR(info.api_version),
-                             VK_VERSION_PATCH(info.api_version));
+        .require_api_version(VK_VERSION_MAJOR(kApiVersion), VK_VERSION_MINOR(kApiVersion),
+                             VK_VERSION_PATCH(kApiVersion));
 
     if (info.validation) {
         builder.request_validation_layers().enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -160,7 +158,7 @@ void Context::create_instance(const ContextInfo& info) {
     for (const char* layer : info.layers)
         builder.enable_layer(layer);
 
-    vkb_instance_ = check(builder.build(), "create instance");
+    vkb_instance_ = detail::check(builder.build(), "create instance");
     instance_ = vk::Instance{vkb_instance_.instance};
 
     // The messenger is created here instead of through vk-bootstrap. Bootstrap
@@ -203,7 +201,7 @@ void Context::create_debug_messenger(vk::DebugUtilsMessageSeverityFlagsEXT sever
     create_info.pfnUserCallback = &validation_callback;
 
     VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
-    check(static_cast<vk::Result>(create_messenger(instance_, &create_info, nullptr, &messenger)),
+    detail::check(static_cast<vk::Result>(create_messenger(instance_, &create_info, nullptr, &messenger)),
           "create debug messenger");
     debug_messenger_ = vk::DebugUtilsMessengerEXT{messenger};
 }
@@ -239,7 +237,7 @@ void Context::pick_physical_device() {
     vkb::PhysicalDeviceSelector selector{vkb_instance_};
     if (!info_.headless)
         selector.set_surface(surface_);
-    selector.set_minimum_version(1, 3);
+    selector.set_minimum_version(VK_API_VERSION_MAJOR(kApiVersion), VK_API_VERSION_MINOR(kApiVersion));
 
     const DeviceFeatures& wanted = info_.device_features;
     selector.set_required_features(vk::PhysicalDeviceFeatures{
@@ -261,10 +259,6 @@ void Context::pick_physical_device() {
         .dynamicRendering = VK_TRUE,
     });
 
-    if (wanted.timeline_semaphore)
-        selector.add_required_extension_features(
-            vk::PhysicalDeviceTimelineSemaphoreFeatures{.timelineSemaphore = VK_TRUE});
-
     // Ray tracing builds on acceleration structures, which in turn require
     // buffer device addresses, so requesting a higher level enables the lower
     // ones instead of making the caller repeat the whole dependency chain.
@@ -274,9 +268,10 @@ void Context::pick_physical_device() {
         wanted.buffer_device_address || wants_acceleration_structure;
 
     const bool wants_vulkan12 =
-        wanted.descriptor_indexing || wanted.scalar_block_layout || wanted.shader_float16 ||
-        wanted.shader_int8 || wanted.storage_buffer_8bit || wanted.storage_buffer_16bit ||
-        wanted.shader_subgroup_extended_types || wants_buffer_device_address;
+        wanted.timeline_semaphore || wanted.descriptor_indexing || wanted.scalar_block_layout ||
+        wanted.shader_float16 || wanted.shader_int8 || wanted.storage_buffer_8bit ||
+        wanted.storage_buffer_16bit || wanted.shader_subgroup_extended_types ||
+        wanted.host_query_reset || wants_buffer_device_address;
 
     if (wants_vulkan12) {
         // All Vulkan 1.2 features live in one structure: the driver rejects the
@@ -305,6 +300,8 @@ void Context::pick_physical_device() {
             features.descriptorBindingVariableDescriptorCount = VK_TRUE;
             features.runtimeDescriptorArray = VK_TRUE;
         }
+        features.timelineSemaphore = wanted.timeline_semaphore ? VK_TRUE : VK_FALSE;
+        features.hostQueryReset = wanted.host_query_reset ? VK_TRUE : VK_FALSE;
         features.scalarBlockLayout = wanted.scalar_block_layout ? VK_TRUE : VK_FALSE;
         features.shaderFloat16 = wanted.shader_float16 ? VK_TRUE : VK_FALSE;
         features.shaderInt8 = wanted.shader_int8 ? VK_TRUE : VK_FALSE;
@@ -345,7 +342,7 @@ void Context::pick_physical_device() {
     if (info_.customize_selector)
         info_.customize_selector(selector);
 
-    vkb_physical_device_ = check(selector.select(), "select physical device");
+    vkb_physical_device_ = detail::check(selector.select(), "select physical device");
     physical_device_ = vk::PhysicalDevice{vkb_physical_device_.physical_device};
 
     const vk::PhysicalDeviceProperties properties = physical_device_.getProperties();
@@ -362,15 +359,15 @@ void Context::pick_physical_device() {
 }
 
 void Context::create_device() {
-    vkb_device_ = check(vkb::DeviceBuilder{vkb_physical_device_}.build(), "create device");
+    vkb_device_ = detail::check(vkb::DeviceBuilder{vkb_physical_device_}.build(), "create device");
     device_ = vk::Device{vkb_device_.device};
 
     graphics_queue_family_index_ =
-        check(vkb_device_.get_queue_index(vkb::QueueType::graphics), "get graphics queue index");
-    graphics_queue_ = vk::Queue{check(vkb_device_.get_queue(vkb::QueueType::graphics), "get graphics queue")};
+        detail::check(vkb_device_.get_queue_index(vkb::QueueType::graphics), "get graphics queue index");
+    graphics_queue_ = vk::Queue{detail::check(vkb_device_.get_queue(vkb::QueueType::graphics), "get graphics queue")};
     if (!info_.headless)
         present_queue_ =
-            vk::Queue{check(vkb_device_.get_queue(vkb::QueueType::present), "get present queue")};
+            vk::Queue{detail::check(vkb_device_.get_queue(vkb::QueueType::present), "get present queue")};
 
     if (info_.separate_compute_queue) {
         const vkb::Result<uint32_t> index = vkb_device_.get_queue_index(vkb::QueueType::compute);
@@ -398,7 +395,7 @@ void Context::create_device() {
 
     std::string present = "none";
     if (!info_.headless)
-        present = std::to_string(check(vkb_device_.get_queue_index(vkb::QueueType::present),
+        present = std::to_string(detail::check(vkb_device_.get_queue_index(vkb::QueueType::present),
                                        "get present queue index"));
 
     log(LogLevel::info, "queues: graphics=" + std::to_string(graphics_queue_family_index_) +
@@ -411,7 +408,7 @@ void Context::create_device() {
 void Context::create_allocator() {
     const DeviceFeatures& features = info_.device_features;
     const bool buffer_device_address = features.buffer_device_address || has_acceleration_structure();
-    allocator_.create(instance_, physical_device_, device_, api_version_, buffer_device_address);
+    allocator_.create(instance_, physical_device_, device_, kApiVersion, buffer_device_address);
 }
 
 void Context::create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D extent) {
@@ -441,16 +438,16 @@ void Context::create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D exten
     if (oldSwapchain)
         builder.set_old_swapchain(oldSwapchain);
 
-    vkb_swapchain_ = check(builder.build(), "create swapchain");
+    vkb_swapchain_ = detail::check(builder.build(), "create swapchain");
 
     swapchain_ = vk::SwapchainKHR{vkb_swapchain_.swapchain};
     swapchain_format_ = static_cast<vk::Format>(vkb_swapchain_.image_format);
     swapchain_extent_ = vk::Extent2D{vkb_swapchain_.extent.width, vkb_swapchain_.extent.height};
 
-    auto images = check(vkb_swapchain_.get_images(), "get swapchain images");
+    auto images = detail::check(vkb_swapchain_.get_images(), "get swapchain images");
     swapchain_images_.assign(images.begin(), images.end());
 
-    auto views = check(vkb_swapchain_.get_image_views(), "create swapchain image views");
+    auto views = detail::check(vkb_swapchain_.get_image_views(), "create swapchain image views");
     swapchain_image_views_.assign(views.begin(), views.end());
 
     log(LogLevel::info, "swapchain: " + std::to_string(swapchain_extent_.width) + "x" +
@@ -497,12 +494,12 @@ void Context::submit_and_wait(vk::CommandBuffer cmd) {
     submit_fence_.wait();
 }
 
-void Context::submit(const vk::SubmitInfo& info, vk::Fence fence) {
+void Context::submit(const vk::SubmitInfo2& info, vk::Fence fence) {
     submit(graphics_queue_, info, fence);
 }
 
-void Context::submit(vk::Queue queue, const vk::SubmitInfo& info, vk::Fence fence) {
-    queue.submit(info, fence);
+void Context::submit(vk::Queue queue, const vk::SubmitInfo2& info, vk::Fence fence) {
+    queue.submit2(info, fence);
 }
 
 void Context::submit(vk::Queue queue,
@@ -510,49 +507,49 @@ void Context::submit(vk::Queue queue,
                      const Semaphore& timeline_semaphore,
                      uint64_t signal_value,
                      vk::Fence fence) {
-    const vk::TimelineSemaphoreSubmitInfo timeline_info{
-        .signalSemaphoreValueCount = 1,
-        .pSignalSemaphoreValues = &signal_value,
+    const vk::SemaphoreSubmitInfo signal_info{
+        .semaphore = timeline_semaphore.handle(),
+        .value = signal_value,
+        .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
     };
-    const vk::Semaphore semaphore = timeline_semaphore.handle();
+    const vk::CommandBufferSubmitInfo command_info{.commandBuffer = cmd};
 
-    queue.submit(vk::SubmitInfo{
-                     .pNext = &timeline_info,
-                     .commandBufferCount = 1,
-                     .pCommandBuffers = &cmd,
-                     .signalSemaphoreCount = 1,
-                     .pSignalSemaphores = &semaphore,
-                 },
-                 fence);
+    queue.submit2(vk::SubmitInfo2{
+                      .commandBufferInfoCount = 1,
+                      .pCommandBufferInfos = &command_info,
+                      .signalSemaphoreInfoCount = 1,
+                      .pSignalSemaphoreInfos = &signal_info,
+                  },
+                  fence);
 }
 
 void Context::submit(vk::Queue queue,
                      vk::CommandBuffer cmd,
                      const Semaphore& wait_semaphore,
                      uint64_t wait_value,
-                     vk::PipelineStageFlags wait_stage,
+                     vk::PipelineStageFlags2 wait_stage,
                      vk::Fence fence) {
-    const vk::TimelineSemaphoreSubmitInfo timeline_info{
-        .waitSemaphoreValueCount = 1,
-        .pWaitSemaphoreValues = &wait_value,
+    const vk::SemaphoreSubmitInfo wait_info{
+        .semaphore = wait_semaphore.handle(),
+        .value = wait_value,
+        .stageMask = wait_stage,
     };
-    const vk::Semaphore semaphore = wait_semaphore.handle();
+    const vk::CommandBufferSubmitInfo command_info{.commandBuffer = cmd};
 
-    queue.submit(vk::SubmitInfo{
-                     .pNext = &timeline_info,
-                     .waitSemaphoreCount = 1,
-                     .pWaitSemaphores = &semaphore,
-                     .pWaitDstStageMask = &wait_stage,
-                     .commandBufferCount = 1,
-                     .pCommandBuffers = &cmd,
-                 },
-                 fence);
+    queue.submit2(vk::SubmitInfo2{
+                      .waitSemaphoreInfoCount = 1,
+                      .pWaitSemaphoreInfos = &wait_info,
+                      .commandBufferInfoCount = 1,
+                      .pCommandBufferInfos = &command_info,
+                  },
+                  fence);
 }
 
 void Context::submit(vk::CommandBuffer cmd, vk::Fence fence) {
-    submit(vk::SubmitInfo{
-               .commandBufferCount = 1,
-               .pCommandBuffers = &cmd,
+    const vk::CommandBufferSubmitInfo command_info{.commandBuffer = cmd};
+    submit(vk::SubmitInfo2{
+               .commandBufferInfoCount = 1,
+               .pCommandBufferInfos = &command_info,
            },
            fence);
 }

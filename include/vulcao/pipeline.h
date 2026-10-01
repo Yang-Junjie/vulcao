@@ -44,8 +44,11 @@ struct GraphicsPipelineInfo {
     vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1; ///< Rasterization sample count.
 
     /// @brief Dynamic states, enabled on the pipeline and set while recording.
-    std::vector<vk::DynamicState> dynamic_states{vk::DynamicState::eViewport,
-                                                 vk::DynamicState::eScissor};
+    ///
+    /// Defaults to the Vulkan 1.3 counted variants, matching
+    /// CommandBuffer::set_viewport and set_scissor.
+    std::vector<vk::DynamicState> dynamic_states{vk::DynamicState::eViewportWithCount,
+                                                 vk::DynamicState::eScissorWithCount};
     std::vector<vk::VertexInputBindingDescription> vertex_bindings;      ///< Vertex input bindings.
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes;  ///< Vertex input attributes.
     std::vector<vk::Format> color_formats;                               ///< Color attachment formats.
@@ -106,23 +109,13 @@ public:
     /// @param device Device that creates the pipeline.
     /// @param layout Pipeline layout.
     /// @param info Pipeline description.
+    /// @param cache Optional pipeline cache used to accelerate creation.
     /// @return The created pipeline.
     /// @throws std::runtime_error if the layout is invalid, a shader is missing, or creation fails.
     static Pipeline create_graphics(vk::Device device,
                                     const PipelineLayout& layout,
-                                    const GraphicsPipelineInfo& info);
-
-    /// @brief Creates a graphics pipeline using a pipeline cache.
-    /// @param device Device that creates the pipeline.
-    /// @param cache Pipeline cache used to accelerate creation.
-    /// @param layout Pipeline layout.
-    /// @param info Pipeline description.
-    /// @return The created pipeline.
-    /// @throws std::runtime_error if the layout is invalid, a shader is missing, or creation fails.
-    static Pipeline create_graphics(vk::Device device,
-                                    const PipelineCache& cache,
-                                    const PipelineLayout& layout,
-                                    const GraphicsPipelineInfo& info);
+                                    const GraphicsPipelineInfo& info,
+                                    const PipelineCache* cache = nullptr);
 
     /// @brief Creates a graphics pipeline from a full Vulkan description.
     ///
@@ -132,29 +125,20 @@ public:
     /// @param device Device that creates the pipeline.
     /// @param layout Pipeline layout.
     /// @param create_info Full graphics pipeline description.
+    /// @param cache Optional pipeline cache used to accelerate creation.
     /// @return The created pipeline.
     /// @throws std::runtime_error if the layout is invalid or creation fails.
     static Pipeline create_graphics(vk::Device device,
                                     const PipelineLayout& layout,
-                                    const vk::GraphicsPipelineCreateInfo& create_info);
-
-    /// @brief Creates a graphics pipeline from a full Vulkan description using a cache.
-    /// @param device Device that creates the pipeline.
-    /// @param cache Pipeline cache used to accelerate creation.
-    /// @param layout Pipeline layout.
-    /// @param create_info Full graphics pipeline description.
-    /// @return The created pipeline.
-    /// @throws std::runtime_error if the layout is invalid or creation fails.
-    static Pipeline create_graphics(vk::Device device,
-                                    const PipelineCache& cache,
-                                    const PipelineLayout& layout,
-                                    const vk::GraphicsPipelineCreateInfo& create_info);
+                                    const vk::GraphicsPipelineCreateInfo& create_info,
+                                    const PipelineCache* cache = nullptr);
 
     /// @brief Creates a compute pipeline.
     /// @param device Device that creates the pipeline.
     /// @param layout Pipeline layout.
     /// @param shader Compute shader module.
     /// @param entry Entry point name.
+    /// @param cache Optional pipeline cache used to accelerate creation.
     /// @param specialization Optional specialization constants.
     /// @return The created pipeline.
     /// @throws std::runtime_error if the layout or shader is invalid, or creation fails.
@@ -162,22 +146,7 @@ public:
                                    const PipelineLayout& layout,
                                    const ShaderModule& shader,
                                    const char* entry = "main",
-                                   const SpecializationInfo* specialization = nullptr);
-
-    /// @brief Creates a compute pipeline using a pipeline cache.
-    /// @param device Device that creates the pipeline.
-    /// @param cache Pipeline cache used to accelerate creation.
-    /// @param layout Pipeline layout.
-    /// @param shader Compute shader module.
-    /// @param entry Entry point name.
-    /// @param specialization Optional specialization constants.
-    /// @return The created pipeline.
-    /// @throws std::runtime_error if the layout or shader is invalid, or creation fails.
-    static Pipeline create_compute(vk::Device device,
-                                   const PipelineCache& cache,
-                                   const PipelineLayout& layout,
-                                   const ShaderModule& shader,
-                                   const char* entry = "main",
+                                   const PipelineCache* cache = nullptr,
                                    const SpecializationInfo* specialization = nullptr);
 
     /// @brief Returns true if the pipeline holds a valid handle.
