@@ -25,6 +25,10 @@ graphs, bindless registries and renderers remain the application's job.
 - **Recording** through [@ref vulcao::CommandBuffer], including layout
   transitions, copies, mipmap generation, draws, dispatches, dynamic state,
   debug labels and queue family ownership transfers.
+- **Ray tracing** through [@ref vulcao::AccelerationStructure], which builds
+  bottom and top level structures from triangle geometry and instances, plus the
+  `DeviceFeatures::ray_query` / `ray_tracing_pipeline` switches and the
+  acceleration structure descriptor write.
 - **Pipelines** built from [@ref vulcao::ShaderModule] reflection:
   [@ref vulcao::PipelineLayout], [@ref vulcao::Pipeline],
   [@ref vulcao::DescriptorSetLayout] and [@ref vulcao::PipelineCache].

@@ -10,6 +10,7 @@
 
 namespace vulcao {
 
+class AccelerationStructure;
 class Buffer;
 class BufferView;
 class DescriptorSet;
@@ -283,6 +284,13 @@ public:
     /// @return This descriptor set.
     const DescriptorSet& write_storage_texel_buffer(uint32_t binding, const BufferView& view) const;
 
+    /// @brief Writes an acceleration structure descriptor.
+    /// @param binding Binding index.
+    /// @param structure Acceleration structure to bind.
+    /// @return This descriptor set.
+    const DescriptorSet& write_acceleration_structure(uint32_t binding,
+                                                       const AccelerationStructure& structure) const;
+
 private:
     friend class DescriptorPool;
     friend class DescriptorSetWriter;
@@ -379,6 +387,11 @@ public:
                                                     const BufferView& view,
                                                     uint32_t array_element = 0);
 
+    /// @brief Queues an acceleration structure descriptor write.
+    DescriptorSetWriter& write_acceleration_structure(uint32_t binding,
+                                                      const AccelerationStructure& structure,
+                                                      uint32_t array_element = 0);
+
     /// @brief Applies all queued writes in one update and clears them.
     void flush();
 
@@ -387,7 +400,7 @@ public:
 
 private:
     struct Record {
-        enum class Payload { buffer, image, texel_buffer };
+        enum class Payload { buffer, image, texel_buffer, acceleration_structure };
 
         uint32_t binding = 0;
         uint32_t array_element = 0;
@@ -396,6 +409,7 @@ private:
         vk::DescriptorBufferInfo buffer_info{};
         vk::DescriptorImageInfo image_info{};
         vk::BufferView texel_view{};
+        vk::AccelerationStructureKHR acceleration_structure{};
     };
 
     /// @brief Queues an image-info based descriptor write of an arbitrary type.

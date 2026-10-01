@@ -1,5 +1,6 @@
 #include "vulcao/descriptor_set.h"
 
+#include "vulcao/acceleration_structure.h"
 #include "vulcao/buffer.h"
 #include "vulcao/image.h"
 #include "vulcao/sampler.h"
@@ -307,6 +308,28 @@ const DescriptorSet& DescriptorSet::write_storage_texel_buffer(uint32_t binding,
     return write_texel_buffer(binding, view, vk::DescriptorType::eStorageTexelBuffer);
 }
 
+const DescriptorSet& DescriptorSet::write_acceleration_structure(
+    uint32_t binding, const AccelerationStructure& structure) const {
+    if (!structure.valid())
+        throw std::runtime_error("DescriptorSet::write_acceleration_structure: invalid structure");
+
+    const vk::AccelerationStructureKHR handle = structure.handle();
+    const vk::WriteDescriptorSetAccelerationStructureKHR structure_info{
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &handle,
+    };
+
+    device_.updateDescriptorSets(vk::WriteDescriptorSet{
+                                     .pNext = &structure_info,
+                                     .dstSet = set_,
+                                     .dstBinding = binding,
+                                     .descriptorCount = 1,
+                                     .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
+                                 },
+                                 {});
+    return *this;
+}
+
 DescriptorSetWriter::DescriptorSetWriter(const DescriptorSet& set)
     : device_(set.device_), set_(set.set_) {}
 
@@ -450,6 +473,22 @@ DescriptorSetWriter& DescriptorSetWriter::write_storage_texel_buffer(uint32_t bi
     return write_texel_buffer(binding, view, vk::DescriptorType::eStorageTexelBuffer, array_element);
 }
 
+DescriptorSetWriter& DescriptorSetWriter::write_acceleration_structure(
+    uint32_t binding, const AccelerationStructure& structure, uint32_t array_element) {
+    if (!structure.valid())
+        throw std::runtime_error(
+            "DescriptorSetWriter::write_acceleration_structure: invalid structure");
+
+    records_.push_back(Record{
+        .binding = binding,
+        .array_element = array_element,
+        .type = vk::DescriptorType::eAccelerationStructureKHR,
+        .payload = Record::Payload::acceleration_structure,
+        .acceleration_structure = structure.handle(),
+    });
+    return *this;
+}
+
 void DescriptorSetWriter::flush() {
     if (records_.empty())
         return;
@@ -457,6 +496,8 @@ void DescriptorSetWriter::flush() {
     std::vector<vk::DescriptorBufferInfo> buffer_infos(records_.size());
     std::vector<vk::DescriptorImageInfo> image_infos(records_.size());
     std::vector<vk::BufferView> texel_views(records_.size());
+    std::vector<vk::AccelerationStructureKHR> acceleration_handles(records_.size());
+    std::vector<vk::WriteDescriptorSetAccelerationStructureKHR> acceleration_infos(records_.size());
     std::vector<vk::WriteDescriptorSet> writes;
     writes.reserve(records_.size());
 
@@ -482,6 +523,12 @@ void DescriptorSetWriter::flush() {
             case Record::Payload::texel_buffer:
                 texel_views[i] = record.texel_view;
                 write.pTexelBufferView = &texel_views[i];
+                break;
+            case Record::Payload::acceleration_structure:
+                acceleration_handles[i] = record.acceleration_structure;
+                acceleration_infos[i].accelerationStructureCount = 1;
+                acceleration_infos[i].pAccelerationStructures = &acceleration_handles[i];
+                write.pNext = &acceleration_infos[i];
                 break;
         }
 

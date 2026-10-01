@@ -119,6 +119,15 @@ public:
     /// @brief Returns information about the VMA allocation.
     const VmaAllocationInfo& allocation_info() const { return info_; }
 
+    /// @brief Returns the device address of the buffer.
+    ///
+    /// The buffer must have been created with eShaderDeviceAddress, which the
+    /// buffer device address feature makes valid.
+    /// @return The buffer device address.
+    /// @throws std::runtime_error if the buffer is invalid or lacks
+    ///         eShaderDeviceAddress usage.
+    vk::DeviceAddress device_address() const;
+
     /// @brief Returns true if the memory is host visible.
     bool host_visible() const { return host_visible_; }
 
@@ -169,6 +178,7 @@ private:
     void destroy();
 
     VmaAllocator allocator_ = nullptr;
+    vk::Device device_;
     VkBuffer buffer_ = VK_NULL_HANDLE;
     VmaAllocation allocation_ = nullptr;
     VmaAllocationInfo info_{};

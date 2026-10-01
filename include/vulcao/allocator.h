@@ -40,10 +40,12 @@ private:
     friend class Context;
 
     /// @brief Creates the allocator. Called by Context.
+    /// @param buffer_device_address True to allow buffers with device addresses.
     void create(vk::Instance instance,
                 vk::PhysicalDevice physical_device,
                 vk::Device device,
-                uint32_t api_version);
+                uint32_t api_version,
+                bool buffer_device_address);
 
     /// @brief Destroys the allocator if it exists.
     void destroy();

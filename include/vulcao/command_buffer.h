@@ -8,6 +8,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "vulcao/acceleration_structure.h"
+
 namespace vulcao {
 
 class Buffer;
@@ -714,6 +716,73 @@ public:
     /// @param offset Byte offset of the dispatch parameters.
     /// @return This command buffer.
     CommandBuffer& dispatch_indirect(vk::Buffer buffer, vk::DeviceSize offset);
+
+    /// @brief Builds a bottom level acceleration structure from triangle geometry.
+    ///
+    /// @p scratch must be a storage buffer created with eShaderDeviceAddress and
+    /// hold at least the build or update scratch size of the structure.
+    /// @param structure Bottom level structure to build into.
+    /// @param geometries One entry per triangle geometry.
+    /// @param scratch Scratch buffer.
+    /// @param mode Build or update.
+    /// @return This command buffer.
+    /// @throws std::runtime_error if the structure is not a valid bottom level structure.
+    CommandBuffer& build_acceleration_structure(
+        const AccelerationStructure& structure,
+        std::span<const TrianglesGeometry> geometries,
+        const Buffer& scratch,
+        vk::BuildAccelerationStructureModeKHR mode = vk::BuildAccelerationStructureModeKHR::eBuild);
+
+    /// @brief Builds a bottom level acceleration structure using its own scratch buffer.
+    /// @param structure Bottom level structure created with an internal scratch buffer.
+    /// @param geometries One entry per triangle geometry.
+    /// @param mode Build or update.
+    /// @return This command buffer.
+    /// @throws std::runtime_error if the structure owns no scratch buffer.
+    CommandBuffer& build_acceleration_structure(
+        const AccelerationStructure& structure,
+        std::span<const TrianglesGeometry> geometries,
+        vk::BuildAccelerationStructureModeKHR mode = vk::BuildAccelerationStructureModeKHR::eBuild);
+
+    /// @brief Builds a top level acceleration structure from an instance buffer.
+    ///
+    /// @p instance_buffer holds vk::AccelerationStructureInstanceKHR entries, as
+    /// produced by make_instance_buffer, and must be at least as large as the
+    /// instance count the structure was created for.
+    /// @param structure Top level structure to build into.
+    /// @param instance_buffer Buffer of instances.
+    /// @param scratch Scratch buffer.
+    /// @param mode Build or update.
+    /// @return This command buffer.
+    /// @throws std::runtime_error if the structure is not a valid top level structure.
+    CommandBuffer& build_acceleration_structure(
+        const AccelerationStructure& structure,
+        const Buffer& instance_buffer,
+        const Buffer& scratch,
+        vk::BuildAccelerationStructureModeKHR mode = vk::BuildAccelerationStructureModeKHR::eBuild);
+
+    /// @brief Builds a top level acceleration structure using its own scratch buffer.
+    /// @param structure Top level structure created with an internal scratch buffer.
+    /// @param instance_buffer Buffer of instances.
+    /// @param mode Build or update.
+    /// @return This command buffer.
+    /// @throws std::runtime_error if the structure owns no scratch buffer.
+    CommandBuffer& build_acceleration_structure(
+        const AccelerationStructure& structure,
+        const Buffer& instance_buffer,
+        vk::BuildAccelerationStructureModeKHR mode = vk::BuildAccelerationStructureModeKHR::eBuild);
+
+    /// @brief Builds several acceleration structures in one call.
+    ///
+    /// The thin passthrough for callers that fill the Vulkan build info and range
+    /// info themselves, for example to build mixed bottom level geometries.
+    /// @param build_infos Build descriptions.
+    /// @param range_infos One range pointer per build info, matching geometry order.
+    /// @return This command buffer.
+    /// @throws std::runtime_error if the two spans differ in size.
+    CommandBuffer& build_acceleration_structures(
+        std::span<const vk::AccelerationStructureBuildGeometryInfoKHR> build_infos,
+        std::span<const vk::AccelerationStructureBuildRangeInfoKHR*> range_infos);
 
     /// @brief Resets a range of queries.
     /// @param pool Query pool.

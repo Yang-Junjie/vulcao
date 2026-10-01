@@ -288,6 +288,37 @@ void Context::pick_physical_device() {
             .runtimeDescriptorArray = VK_TRUE,
         });
 
+    // Ray tracing builds on acceleration structures, which in turn require
+    // buffer device addresses, so requesting a higher level enables the lower
+    // ones instead of making the caller repeat the whole dependency chain.
+    const bool wants_acceleration_structure =
+        wanted.acceleration_structure || wanted.ray_query || wanted.ray_tracing_pipeline;
+    const bool wants_buffer_device_address =
+        wanted.buffer_device_address || wants_acceleration_structure;
+
+    if (wants_buffer_device_address)
+        selector.add_required_extension_features(
+            vk::PhysicalDeviceBufferDeviceAddressFeatures{.bufferDeviceAddress = VK_TRUE});
+
+    if (wants_acceleration_structure) {
+        selector.add_required_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+        selector.add_required_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        selector.add_required_extension_features(
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR{.accelerationStructure = VK_TRUE});
+    }
+
+    if (wanted.ray_query) {
+        selector.add_required_extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+        selector.add_required_extension_features(
+            vk::PhysicalDeviceRayQueryFeaturesKHR{.rayQuery = VK_TRUE});
+    }
+
+    if (wanted.ray_tracing_pipeline) {
+        selector.add_required_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+        selector.add_required_extension_features(
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{.rayTracingPipeline = VK_TRUE});
+    }
+
     for (const char* extension : info_.device_extensions)
         selector.add_required_extension(extension);
 
@@ -356,7 +387,9 @@ void Context::create_device() {
 }
 
 void Context::create_allocator() {
-    allocator_.create(instance_, physical_device_, device_, api_version_);
+    const DeviceFeatures& features = info_.device_features;
+    const bool buffer_device_address = features.buffer_device_address || has_acceleration_structure();
+    allocator_.create(instance_, physical_device_, device_, api_version_, buffer_device_address);
 }
 
 void Context::create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D extent) {

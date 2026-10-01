@@ -65,6 +65,32 @@ inline bool has_device() {
     return available;
 }
 
+/// @brief Returns true when the machine exposes a device with ray query support.
+///
+/// Probes by building a throwaway headless context that requires the ray query
+/// feature chain and catching the selection failure. Like has_device(), this
+/// answers "is the feature present", not "does the library work".
+inline bool has_ray_query() {
+    const LogLevel previous = log_level();
+    set_log_level(LogLevel::error);
+
+    bool available = false;
+    try {
+        ContextInfo info;
+        info.headless = true;
+        info.validation = false;
+        info.device_features.ray_query = true;
+        Context context{info};
+        context.initialize();
+        available = context.initialized();
+    } catch (const std::exception&) {
+        available = false;
+    }
+
+    set_log_level(previous);
+    return available;
+}
+
 /// @brief Returns true when a missing device is tolerated instead of failing.
 ///
 /// Set the environment variable VULCAO_ALLOW_NO_DEVICE=1 to run the device tests
@@ -153,6 +179,18 @@ inline bool has_dedicated_transfer_queue() {
         }                                                                                    \
         FAIL("no usable Vulkan device; set VULCAO_ALLOW_NO_DEVICE=1 to tolerate this");       \
         return;                                                                              \
+    } while (false)
+
+/// @brief Abandons the current test case unless the device supports ray queries.
+///
+/// Unlike VULCAO_REQUIRE_DEVICE this always skips rather than fails: ray query is
+/// optional hardware, so a machine without it still produces a green suite.
+#define VULCAO_REQUIRE_RAY_QUERY()                                  \
+    do {                                                            \
+        if (vulcao::test::has_ray_query())                          \
+            break;                                                  \
+        MESSAGE("skipping: no ray query support on this device");   \
+        return;                                                     \
     } while (false)
 
 }

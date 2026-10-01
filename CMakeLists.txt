@@ -30,6 +30,7 @@ add_subdirectory(third_party/spirv-reflect)
 # --- vulcao ------------------------------------------------------------------
 
 add_library(vulcao STATIC
+    src/acceleration_structure.cpp
     src/allocator.cpp
     src/barrier.cpp
     src/buffer.cpp

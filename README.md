@@ -34,6 +34,13 @@ layouts from SPIR-V reflection.
 - Pipelines: `ShaderModule` with SPIR-V reflection, `DescriptorSetLayout/Pool/Set`
   with a batching writer and layout cache, `PipelineLayout`, `Pipeline` with
   graphics/compute factories, specialization constants and `PipelineCache`.
+- Ray tracing: `AccelerationStructure` builds bottom and top level
+  structures from triangle geometry and instances, with build sizes queries,
+  optional internal scratch and a `make_instance_buffer` packer. Ray queries and
+  ray tracing pipelines are enabled through `DeviceFeatures`, the acceleration
+  structure descriptor is written like any other, and the raw
+  `CommandBuffer::build_acceleration_structures` passthrough covers advanced
+  geometry.
 - Descriptor indexing: layouts accept creation flags and per-binding flags
   (`PARTIALLY_BOUND`, `UPDATE_AFTER_BIND`, `VARIABLE_DESCRIPTOR_COUNT`), pools
   allocate variable descriptor counts, and reflected runtime arrays report

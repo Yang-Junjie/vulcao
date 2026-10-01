@@ -14,6 +14,7 @@ Buffer::~Buffer() {
 
 Buffer::Buffer(Buffer&& other) noexcept
     : allocator_(std::exchange(other.allocator_, nullptr)),
+      device_(std::exchange(other.device_, vk::Device{})),
       buffer_(std::exchange(other.buffer_, VK_NULL_HANDLE)),
       allocation_(std::exchange(other.allocation_, nullptr)),
       info_(std::exchange(other.info_, VmaAllocationInfo{})),
@@ -28,6 +29,7 @@ Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
         destroy();
         allocator_ = std::exchange(other.allocator_, nullptr);
+        device_ = std::exchange(other.device_, vk::Device{});
         buffer_ = std::exchange(other.buffer_, VK_NULL_HANDLE);
         allocation_ = std::exchange(other.allocation_, nullptr);
         info_ = std::exchange(other.info_, VmaAllocationInfo{});
@@ -52,6 +54,7 @@ Buffer Buffer::create(Allocator& allocator,
 
     Buffer buffer;
     buffer.allocator_ = allocator.handle();
+    buffer.device_ = allocator.device();
 
     const bool concurrent = concurrent_families.size() >= 2;
     const vk::BufferCreateInfo create_info{
@@ -91,6 +94,15 @@ Buffer Buffer::create_with_data(Context& context,
                            usage | vk::BufferUsageFlagBits::eTransferDst, memory_usage, flags);
     context.upload(buffer, data, size);
     return buffer;
+}
+
+vk::DeviceAddress Buffer::device_address() const {
+    if (buffer_ == VK_NULL_HANDLE)
+        throw std::runtime_error("Buffer::device_address: invalid buffer");
+    if (!(usage_ & vk::BufferUsageFlagBits::eShaderDeviceAddress))
+        throw std::runtime_error("Buffer::device_address: buffer requires eShaderDeviceAddress usage");
+
+    return device_.getBufferAddress(vk::BufferDeviceAddressInfo{.buffer = vk::Buffer{buffer_}});
 }
 
 void* Buffer::map() {
@@ -143,6 +155,7 @@ void Buffer::destroy() {
         vmaDestroyBuffer(allocator_, buffer_, allocation_);
 
     allocator_ = nullptr;
+    device_ = nullptr;
     buffer_ = VK_NULL_HANDLE;
     allocation_ = nullptr;
     info_ = {};

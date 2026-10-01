@@ -37,6 +37,13 @@ struct DeviceFeatures {
     bool depth_clamp = false;                ///< Enable depth clamping.
     bool draw_indirect_first_instance = false; ///< Enable the firstInstance parameter of indirect draws.
     bool shader_draw_parameters = false;       ///< Enable the DrawParameters capability for gl_VertexIndex.
+    bool buffer_device_address = false;        ///< Enable buffer device addresses.
+    /// @brief Enable acceleration structures (implies buffer_device_address).
+    bool acceleration_structure = false;
+    /// @brief Enable ray queries in compute and graphics shaders (implies acceleration_structure).
+    bool ray_query = false;
+    /// @brief Enable ray tracing pipelines (implies acceleration_structure).
+    bool ray_tracing_pipeline = false;
 };
 
 /// @brief Creation parameters of a Context.
@@ -147,6 +154,21 @@ public:
 
     /// @brief Returns true if VK_EXT_debug_utils is enabled.
     bool debug_utils_enabled() const { return debug_utils_enabled_; }
+
+    /// @brief Returns true if acceleration structures were requested.
+    ///
+    /// True when any of DeviceFeatures::acceleration_structure, ray_query or
+    /// ray_tracing_pipeline was enabled, since they all imply it.
+    bool has_acceleration_structure() const {
+        return info_.device_features.acceleration_structure || info_.device_features.ray_query ||
+               info_.device_features.ray_tracing_pipeline;
+    }
+
+    /// @brief Returns true if ray queries were requested.
+    bool has_ray_query() const { return info_.device_features.ray_query; }
+
+    /// @brief Returns true if a ray tracing pipeline was requested.
+    bool has_ray_tracing_pipeline() const { return info_.device_features.ray_tracing_pipeline; }
 
     /// @brief Sets a debug name on a Vulkan object. No-op without debug utils.
     /// @param type Object type.
