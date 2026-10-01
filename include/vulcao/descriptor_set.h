@@ -15,7 +15,7 @@ class Buffer;
 class BufferView;
 class DescriptorSet;
 class DescriptorSetWriter;
-class Image;
+class ImageView;
 class Sampler;
 
 /// @brief RAII wrapper around a Vulkan descriptor set layout.
@@ -228,22 +228,22 @@ public:
 
     /// @brief Writes a combined image sampler descriptor.
     /// @param binding Binding index.
-    /// @param image Image to bind.
+    /// @param view Image view to bind.
     /// @param sampler Sampler to bind.
     /// @param layout Layout the image is sampled in.
     /// @return This descriptor set.
     const DescriptorSet& write_image(uint32_t binding,
-                               const Image& image,
+                               const ImageView& view,
                                const Sampler& sampler,
                                vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal) const;
 
     /// @brief Writes a storage image descriptor.
     /// @param binding Binding index.
-    /// @param image Image to bind.
+    /// @param view Image view to bind.
     /// @param layout Layout the image is accessed in.
     /// @return This descriptor set.
     const DescriptorSet& write_storage_image(uint32_t binding,
-                                       const Image& image,
+                                       const ImageView& view,
                                        vk::ImageLayout layout = vk::ImageLayout::eGeneral) const;
 
     /// @brief Writes a standalone sampler descriptor.
@@ -254,22 +254,22 @@ public:
 
     /// @brief Writes a sampled image descriptor, separate from its sampler.
     /// @param binding Binding index.
-    /// @param image Image to bind.
+    /// @param view Image view to bind.
     /// @param layout Layout the image is sampled in.
     /// @return This descriptor set.
     const DescriptorSet& write_sampled_image(
         uint32_t binding,
-        const Image& image,
+        const ImageView& view,
         vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal) const;
 
     /// @brief Writes an input attachment descriptor.
     /// @param binding Binding index.
-    /// @param image Image to bind.
+    /// @param view Image view to bind.
     /// @param layout Layout the image is read in.
     /// @return This descriptor set.
     const DescriptorSet& write_input_attachment(
         uint32_t binding,
-        const Image& image,
+        const ImageView& view,
         vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal) const;
 
     /// @brief Writes a uniform texel buffer descriptor.
@@ -347,14 +347,14 @@ public:
 
     /// @brief Queues a combined image sampler descriptor write.
     DescriptorSetWriter& write_image(uint32_t binding,
-                                     const Image& image,
+                                     const ImageView& view,
                                      const Sampler& sampler,
                                      vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal,
                                      uint32_t array_element = 0);
 
     /// @brief Queues a storage image descriptor write.
     DescriptorSetWriter& write_storage_image(uint32_t binding,
-                                             const Image& image,
+                                             const ImageView& view,
                                              vk::ImageLayout layout = vk::ImageLayout::eGeneral,
                                              uint32_t array_element = 0);
 
@@ -366,14 +366,14 @@ public:
     /// @brief Queues a sampled image descriptor write, separate from its sampler.
     DescriptorSetWriter& write_sampled_image(
         uint32_t binding,
-        const Image& image,
+        const ImageView& view,
         vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal,
         uint32_t array_element = 0);
 
     /// @brief Queues an input attachment descriptor write.
     DescriptorSetWriter& write_input_attachment(
         uint32_t binding,
-        const Image& image,
+        const ImageView& view,
         vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal,
         uint32_t array_element = 0);
 

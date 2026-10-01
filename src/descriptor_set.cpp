@@ -2,7 +2,7 @@
 
 #include "vulcao/acceleration_structure.h"
 #include "vulcao/buffer.h"
-#include "vulcao/image.h"
+#include "vulcao/image_view.h"
 #include "vulcao/sampler.h"
 
 #include <algorithm>
@@ -205,12 +205,12 @@ const DescriptorSet& DescriptorSet::write_storage_buffer(uint32_t binding,
 }
 
 const DescriptorSet& DescriptorSet::write_image(uint32_t binding,
-                                          const Image& image,
+                                          const ImageView& view,
                                           const Sampler& sampler,
                                           vk::ImageLayout layout) const {
     const vk::DescriptorImageInfo info{
         .sampler = sampler.handle(),
-        .imageView = image.view(),
+        .imageView = view.handle(),
         .imageLayout = layout,
     };
 
@@ -226,11 +226,11 @@ const DescriptorSet& DescriptorSet::write_image(uint32_t binding,
 }
 
 const DescriptorSet& DescriptorSet::write_storage_image(uint32_t binding,
-                                                  const Image& image,
+                                                  const ImageView& view,
                                                   vk::ImageLayout layout) const {
     const vk::DescriptorImageInfo info{
         .sampler = nullptr,
-        .imageView = image.view(),
+        .imageView = view.handle(),
         .imageLayout = layout,
     };
 
@@ -266,20 +266,20 @@ const DescriptorSet& DescriptorSet::write_sampler(uint32_t binding, const Sample
 }
 
 const DescriptorSet& DescriptorSet::write_sampled_image(uint32_t binding,
-                                                        const Image& image,
+                                                        const ImageView& view,
                                                         vk::ImageLayout layout) const {
     return write_image_descriptor(
         binding,
-        vk::DescriptorImageInfo{.imageView = image.view(), .imageLayout = layout},
+        vk::DescriptorImageInfo{.imageView = view.handle(), .imageLayout = layout},
         vk::DescriptorType::eSampledImage);
 }
 
 const DescriptorSet& DescriptorSet::write_input_attachment(uint32_t binding,
-                                                           const Image& image,
+                                                           const ImageView& view,
                                                            vk::ImageLayout layout) const {
     return write_image_descriptor(
         binding,
-        vk::DescriptorImageInfo{.imageView = image.view(), .imageLayout = layout},
+        vk::DescriptorImageInfo{.imageView = view.handle(), .imageLayout = layout},
         vk::DescriptorType::eInputAttachment);
 }
 
@@ -372,7 +372,7 @@ DescriptorSetWriter& DescriptorSetWriter::write_storage_buffer(uint32_t binding,
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_image(uint32_t binding,
-                                                      const Image& image,
+                                                      const ImageView& view,
                                                       const Sampler& sampler,
                                                       vk::ImageLayout layout,
                                                       uint32_t array_element) {
@@ -383,7 +383,7 @@ DescriptorSetWriter& DescriptorSetWriter::write_image(uint32_t binding,
         .payload = Record::Payload::image,
         .image_info = vk::DescriptorImageInfo{
             .sampler = sampler.handle(),
-            .imageView = image.view(),
+            .imageView = view.handle(),
             .imageLayout = layout,
         },
     });
@@ -391,7 +391,7 @@ DescriptorSetWriter& DescriptorSetWriter::write_image(uint32_t binding,
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_storage_image(uint32_t binding,
-                                                              const Image& image,
+                                                              const ImageView& view,
                                                               vk::ImageLayout layout,
                                                               uint32_t array_element) {
     records_.push_back(Record{
@@ -401,7 +401,7 @@ DescriptorSetWriter& DescriptorSetWriter::write_storage_image(uint32_t binding,
         .payload = Record::Payload::image,
         .image_info = vk::DescriptorImageInfo{
             .sampler = nullptr,
-            .imageView = image.view(),
+            .imageView = view.handle(),
             .imageLayout = layout,
         },
     });
@@ -430,21 +430,21 @@ DescriptorSetWriter& DescriptorSetWriter::write_sampler(uint32_t binding,
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_sampled_image(uint32_t binding,
-                                                              const Image& image,
+                                                              const ImageView& view,
                                                               vk::ImageLayout layout,
                                                               uint32_t array_element) {
     return write_image_record(
         binding, vk::DescriptorType::eSampledImage,
-        vk::DescriptorImageInfo{.imageView = image.view(), .imageLayout = layout}, array_element);
+        vk::DescriptorImageInfo{.imageView = view.handle(), .imageLayout = layout}, array_element);
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_input_attachment(uint32_t binding,
-                                                                 const Image& image,
+                                                                 const ImageView& view,
                                                                  vk::ImageLayout layout,
                                                                  uint32_t array_element) {
     return write_image_record(
         binding, vk::DescriptorType::eInputAttachment,
-        vk::DescriptorImageInfo{.imageView = image.view(), .imageLayout = layout}, array_element);
+        vk::DescriptorImageInfo{.imageView = view.handle(), .imageLayout = layout}, array_element);
 }
 
 DescriptorSetWriter& DescriptorSetWriter::write_texel_buffer(uint32_t binding,

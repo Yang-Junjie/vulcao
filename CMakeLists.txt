@@ -41,6 +41,7 @@ add_library(vulcao STATIC
     src/fence.cpp
     src/frame_manager.cpp
     src/image.cpp
+    src/image_view.cpp
     src/log.cpp
     src/pipeline.cpp
     src/pipeline_cache.cpp

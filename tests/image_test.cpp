@@ -4,6 +4,7 @@
 
 #include <vulcao/context.h>
 #include <vulcao/image.h>
+#include <vulcao/image_view.h>
 #include <vulcao/log.h>
 
 #include "common.h"
@@ -41,7 +42,7 @@ TEST_CASE("image_byte_size follows the texel block layout") {
           2u * 2u * 8u);
 }
 
-TEST_CASE("Image::create derives the fields of a partial view") {
+TEST_CASE("ImageView derives type, format and range from an image") {
     VULCAO_REQUIRE_DEVICE();
 
     vulcao::ContextInfo info;
@@ -64,35 +65,34 @@ TEST_CASE("Image::create derives the fields of a partial view") {
         .initialLayout = vk::ImageLayout::eUndefined,
     };
 
-    // Only the format is set: viewType and the subresource range must be derived,
-    // otherwise the view would be created with a zero level count.
-    const vulcao::Image derived =
-        vulcao::Image::create(context.allocator(), image_info,
-                              vk::ImageViewCreateInfo{.format = vk::Format::eR8G8B8A8Unorm});
+    const vulcao::Image image = vulcao::Image::create(context.allocator(), image_info);
+    CHECK(image.valid());
+    CHECK(image.subresource_range().levelCount == 1);
+    CHECK(image.subresource_range().layerCount == 1);
+    CHECK(image.subresource_range().aspectMask == vk::ImageAspectFlagBits::eColor);
 
+    // The view type, format and range are derived from the image.
+    const vulcao::ImageView derived = vulcao::ImageView::create(context.device(), image);
     CHECK(derived.valid());
-    CHECK(derived.view() != VK_NULL_HANDLE);
-    CHECK(derived.subresource_range().levelCount == 1);
-    CHECK(derived.subresource_range().layerCount == 1);
-    CHECK(derived.subresource_range().aspectMask == vk::ImageAspectFlagBits::eColor);
+    CHECK(derived.format() == vk::Format::eR8G8B8A8Unorm);
+    CHECK(derived.range().levelCount == 1);
+    CHECK(derived.range().layerCount == 1);
 
     // An explicit subresource range must survive instead of being replaced.
     vk::ImageCreateInfo mipmapped = image_info;
     mipmapped.mipLevels = 4;
+    const vulcao::Image mip_image = vulcao::Image::create(context.allocator(), mipmapped);
 
-    const vulcao::Image explicit_range = vulcao::Image::create(
-        context.allocator(), mipmapped,
-        vk::ImageViewCreateInfo{
-            .format = vk::Format::eR8G8B8A8Unorm,
-            .subresourceRange = vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
+    const vulcao::ImageView mip_view = vulcao::ImageView::create(
+        context.device(), mip_image, vk::ImageViewType::e2D, vk::Format::eR8G8B8A8Unorm,
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
         });
 
-    CHECK(explicit_range.valid());
-    CHECK(explicit_range.mip_levels() == 1);
+    CHECK(mip_view.valid());
+    CHECK(mip_view.range().levelCount == 1);
 }

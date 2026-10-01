@@ -9,6 +9,7 @@
 #include <vulcao/context.h>
 #include <vulcao/descriptor_set.h>
 #include <vulcao/image.h>
+#include <vulcao/image_view.h>
 #include <vulcao/log.h>
 #include <vulcao/sampler.h>
 
@@ -132,14 +133,15 @@ TEST_CASE("descriptor set writes match the declared binding types") {
     vulcao::Image image = vulcao::Image::create_2d(
         context.allocator(), vk::Extent2D{4, 4}, vk::Format::eR8G8B8A8Unorm,
         vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage);
+    const vulcao::ImageView image_view = vulcao::ImageView::create(context.device(), image);
 
     // The write helpers are const: they update the Vulkan set, not this handle.
     const vulcao::DescriptorSet set = pool.allocate(layout);
 
     CHECK_NOTHROW(set.write_uniform_buffer(uniform_binding, uniform));
     CHECK_NOTHROW(set.write_storage_buffer(storage_binding, storage));
-    CHECK_NOTHROW(set.write_image(image_binding, image, sampler));
-    CHECK_NOTHROW(set.write_storage_image(storage_image_binding, image));
+    CHECK_NOTHROW(set.write_image(image_binding, image_view, sampler));
+    CHECK_NOTHROW(set.write_storage_image(storage_image_binding, image_view));
 
     CHECK_NOTHROW(set.write_buffer(uniform_binding, uniform, DescriptorType::eUniformBuffer, 0, 64));
 
@@ -147,8 +149,8 @@ TEST_CASE("descriptor set writes match the declared binding types") {
     vulcao::DescriptorSetWriter writer{set};
     writer.write_uniform_buffer(uniform_binding, uniform)
         .write_storage_buffer(storage_binding, storage)
-        .write_image(image_binding, image, sampler)
-        .write_storage_image(storage_image_binding, image);
+        .write_image(image_binding, image_view, sampler)
+        .write_storage_image(storage_image_binding, image_view);
     CHECK_NOTHROW(writer.flush());
 
     // Flushing twice is a no-op, and clear() drops pending writes.
@@ -442,19 +444,20 @@ TEST_CASE("texel buffer views and separate image descriptors write cleanly") {
     vulcao::Image image = vulcao::Image::create_2d(
         context.allocator(), vk::Extent2D{4, 4}, vk::Format::eR8G8B8A8Unorm,
         vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eInputAttachment);
+    const vulcao::ImageView image_view = vulcao::ImageView::create(context.device(), image);
 
     const vulcao::DescriptorSet set = pool.allocate(layout);
     CHECK_NOTHROW(set.write_sampler(sampler_binding, sampler));
-    CHECK_NOTHROW(set.write_sampled_image(sampled_binding, image));
-    CHECK_NOTHROW(set.write_input_attachment(input_binding, image));
+    CHECK_NOTHROW(set.write_sampled_image(sampled_binding, image_view));
+    CHECK_NOTHROW(set.write_input_attachment(input_binding, image_view));
     CHECK_NOTHROW(set.write_uniform_texel_buffer(uniform_texel_binding, view));
     CHECK_NOTHROW(set.write_storage_texel_buffer(storage_texel_binding, view));
 
     // The batching writer covers the same descriptor kinds in one update.
     vulcao::DescriptorSetWriter writer{set};
     writer.write_sampler(sampler_binding, sampler)
-        .write_sampled_image(sampled_binding, image)
-        .write_input_attachment(input_binding, image)
+        .write_sampled_image(sampled_binding, image_view)
+        .write_input_attachment(input_binding, image_view)
         .write_uniform_texel_buffer(uniform_texel_binding, view)
         .write_storage_texel_buffer(storage_texel_binding, view);
     CHECK_NOTHROW(writer.flush());

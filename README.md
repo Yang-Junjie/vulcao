@@ -12,7 +12,9 @@ layouts from SPIR-V reflection.
   the surface and swapchain for compute-only or offscreen work.
 - Resources: VMA-backed `Allocator`, `Buffer` (including `create_with_data`, the
   create-and-upload pair in one call), `BufferView` for texel buffers, `Image`
-  (2D/depth factories, mipmap generation), `Sampler` and `CommandPool`.
+  (1D/2D/3D/array/cube/depth factories, mipmap generation), `ImageView` for the
+  per-view interpretation (format, mip and layer range, view type), `Sampler` and
+  `CommandPool`.
 - Transfer: staging-backed `upload`/`download` for buffers and images, with the
   full `vk::BufferImageCopy` region exposed for row-pitched data. `upload_async`
   runs uploads on the dedicated transfer queue (when requested) and reports

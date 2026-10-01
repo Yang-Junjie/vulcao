@@ -8,6 +8,7 @@
 #include <vulcao/command_buffer.h>
 #include <vulcao/context.h>
 #include <vulcao/image.h>
+#include <vulcao/image_view.h>
 #include <vulcao/log.h>
 #include <vulcao/rendering.h>
 
@@ -66,6 +67,7 @@ TEST_CASE("begin_rendering with a built attachment clears an offscreen image") {
     vulcao::Image image = vulcao::Image::create_2d(
         context.allocator(), vk::Extent2D{width, height}, vk::Format::eR8G8B8A8Unorm,
         vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc);
+    const vulcao::ImageView image_view = vulcao::ImageView::create(context.device(), image);
 
     const vk::ClearColorValue clear{std::array<float, 4>{0.25f, 0.5f, 0.75f, 1.0f}};
 
@@ -73,7 +75,7 @@ TEST_CASE("begin_rendering with a built attachment clears an offscreen image") {
         cmd.transition(image, vk::ImageLayout::eColorAttachmentOptimal);
         // The clear happens at the attachment load op, no draw is needed.
         cmd.begin_rendering(vk::Extent2D{width, height},
-                            vulcao::color_attachment(image.view(), image.layout(), clear));
+                            vulcao::color_attachment(image_view.handle(), image.layout(), clear));
         cmd.end_rendering();
     });
 

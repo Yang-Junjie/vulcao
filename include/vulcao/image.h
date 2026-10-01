@@ -41,22 +41,18 @@ public:
     /// @brief Move assignment. Destroys the current image first.
     Image& operator=(Image&& other) noexcept;
 
-    /// @brief Creates an image, allocates its memory and creates its view.
+    /// @brief Creates an image and allocates its memory.
     ///
-    /// Fields of @p view_info left at their unset sentinel are derived from
-    /// @p image_info: viewType when it is e1D, format when it is undefined, and
-    /// the whole subresourceRange when its levelCount is zero. Set a field
-    /// explicitly to keep it as it is.
+    /// No view is created: build one with ImageView::create once the image is
+    /// known to be valid. The full subresource range is tracked from
+    /// @p image_info for the layout barriers.
     /// @param allocator Allocator used for the memory.
     /// @param image_info Image creation parameters.
-    /// @param view_info View creation parameters, possibly only partially filled.
     /// @return The created image.
     /// @throws std::runtime_error if the allocator is invalid or the image cannot be created.
-    static Image create(Allocator& allocator,
-                        const vk::ImageCreateInfo& image_info,
-                        vk::ImageViewCreateInfo view_info = {});
+    static Image create(Allocator& allocator, const vk::ImageCreateInfo& image_info);
 
-    /// @brief Creates a 2D image with a view.
+    /// @brief Creates a 2D image.
     /// @param allocator Allocator used for the memory.
     /// @param extent Image width and height.
     /// @param format Image format.
@@ -76,7 +72,41 @@ public:
                            vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1,
                            vk::ArrayProxy<const uint32_t> concurrent_families = {});
 
-    /// @brief Creates a depth image with a view.
+    /// @brief Creates a 1D image.
+    static Image create_1d(Allocator& allocator,
+                           uint32_t width,
+                           vk::Format format,
+                           vk::ImageUsageFlags usage,
+                           uint32_t mip_levels = 1,
+                           uint32_t array_layers = 1,
+                           vk::ArrayProxy<const uint32_t> concurrent_families = {});
+
+    /// @brief Creates a 3D image.
+    static Image create_3d(Allocator& allocator,
+                           vk::Extent3D extent,
+                           vk::Format format,
+                           vk::ImageUsageFlags usage,
+                           uint32_t mip_levels = 1,
+                           vk::ArrayProxy<const uint32_t> concurrent_families = {});
+
+    /// @brief Creates a 2D array image.
+    static Image create_2d_array(Allocator& allocator,
+                                 vk::Extent2D extent,
+                                 uint32_t array_layers,
+                                 vk::Format format,
+                                 vk::ImageUsageFlags usage,
+                                 uint32_t mip_levels = 1,
+                                 vk::ArrayProxy<const uint32_t> concurrent_families = {});
+
+    /// @brief Creates a cubemap image, six layers and cube compatible.
+    static Image create_cube(Allocator& allocator,
+                             vk::Extent2D extent,
+                             vk::Format format,
+                             vk::ImageUsageFlags usage,
+                             uint32_t mip_levels = 1,
+                             vk::ArrayProxy<const uint32_t> concurrent_families = {});
+
+    /// @brief Creates a depth image.
     /// @param allocator Allocator used for the memory.
     /// @param extent Image width and height.
     /// @param format Depth format.
@@ -95,13 +125,19 @@ public:
     /// @brief Returns the raw Vulkan image handle.
     vk::Image handle() const { return vk::Image{image_}; }
 
-    /// @brief Returns the image view owned by this image.
-    vk::ImageView view() const { return vk::ImageView{view_}; }
-
     /// @brief Returns the image extent.
     vk::Extent3D extent() const { return extent_; }
 
-    /// @brief Returns the number of mip levels covered by the view.
+    /// @brief Returns the image type.
+    vk::ImageType image_type() const { return image_type_; }
+
+    /// @brief Returns the number of array layers.
+    uint32_t array_layers() const { return array_layers_; }
+
+    /// @brief Returns true if the image was created cube compatible.
+    bool cube_compatible() const { return cube_compatible_; }
+
+    /// @brief Returns the number of mip levels.
     uint32_t mip_levels() const { return range_.levelCount; }
 
     /// @brief Returns the image format.
@@ -123,7 +159,7 @@ public:
     /// on the Image& overloads so this stays accurate.
     vk::ImageLayout layout() const { return layout_; }
 
-    /// @brief Returns the subresource range covered by the image view.
+    /// @brief Returns the full subresource range of the image.
     vk::ImageSubresourceRange subresource_range() const { return range_; }
 
     /// @brief Returns the VMA allocation of the image.
@@ -135,15 +171,17 @@ private:
     /// @brief Updates the tracked layout. Called by CommandBuffer.
     void set_layout(vk::ImageLayout layout) { layout_ = layout; }
 
-    /// @brief Destroys the view, image and memory, then resets the wrapper.
+    /// @brief Destroys the image and its memory, then resets the wrapper.
     void destroy();
 
     vk::Device device_;
     VmaAllocator allocator_ = nullptr;
     VkImage image_ = VK_NULL_HANDLE;
     VmaAllocation allocation_ = nullptr;
-    VkImageView view_ = VK_NULL_HANDLE;
     vk::Extent3D extent_{};
+    vk::ImageType image_type_ = vk::ImageType::e2D;
+    uint32_t array_layers_ = 1;
+    bool cube_compatible_ = false;
     vk::Format format_ = vk::Format::eUndefined;
     vk::ImageUsageFlags usage_;
     vk::SharingMode sharing_mode_ = vk::SharingMode::eExclusive;

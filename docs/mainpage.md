@@ -15,8 +15,9 @@ graphs, bindless registries and renderers remain the application's job.
   headless for compute-only or offscreen work.
 - **[@ref vulcao::FrameManager]** owns frames in flight, the swapchain acquire and
   the present loop.
-- **Resources** are VMA backed: [@ref vulcao::Buffer], [@ref vulcao::Image],
-  [@ref vulcao::Sampler] and [@ref vulcao::CommandPool].
+- **Resources** are VMA backed: [@ref vulcao::Buffer], [@ref vulcao::Image] and
+  its [@ref vulcao::ImageView], [@ref vulcao::Sampler] and
+  [@ref vulcao::CommandPool].
 - **Transfer** helpers upload and download buffers and images through a reused
   staging buffer, and expose the full `vk::BufferImageCopy` region for
   row-pitched data.
