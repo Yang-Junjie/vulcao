@@ -7,9 +7,12 @@ layouts from SPIR-V reflection.
 ## Features
 
 - `Context`: instance, physical device, logical device, swapchain, queues and
-  command pool, with configurable device features/extensions and dedicated
-  compute/transfer queues. Created headless (`ContextInfo::headless`) it skips
-  the surface and swapchain for compute-only or offscreen work.
+  command pool, with configurable device features/extensions (including
+  descriptor indexing, scalar block layout, 8/16 bit storage, subgroup extended
+  types and the ray tracing features) and dedicated compute/transfer queues.
+  Created headless (`ContextInfo::headless`) it skips the surface and swapchain
+  for compute-only or offscreen work. It reports the selected device, its
+  timestamp period and its memory properties.
 - Resources: VMA-backed `Allocator`, `Buffer` (including `create_with_data`, the
   create-and-upload pair in one call), `BufferView` for texel buffers, `Image`
   (1D/2D/3D/array/cube/depth factories, mipmap generation), `ImageView` for the

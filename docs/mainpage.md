@@ -12,7 +12,8 @@ graphs, bindless registries and renderers remain the application's job.
 
 - **[@ref vulcao::Context]** owns the instance, physical and logical device,
   swapchain, queues, command pool and the VMA allocator. It can also be created
-  headless for compute-only or offscreen work.
+  headless for compute-only or offscreen work, and reports the selected device
+  along with its timestamp period and memory properties.
 - **[@ref vulcao::FrameManager]** owns frames in flight, the swapchain acquire and
   the present loop.
 - **Resources** are VMA backed: [@ref vulcao::Buffer], [@ref vulcao::Image] and

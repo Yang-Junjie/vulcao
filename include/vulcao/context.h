@@ -44,6 +44,12 @@ struct DeviceFeatures {
     bool ray_query = false;
     /// @brief Enable ray tracing pipelines (implies acceleration_structure).
     bool ray_tracing_pipeline = false;
+    bool scalar_block_layout = false;          ///< Enable scalar block layout.
+    bool shader_float16 = false;               ///< Enable 16 bit floats in shaders.
+    bool shader_int8 = false;                  ///< Enable 8 bit integers in shaders.
+    bool storage_buffer_8bit = false;          ///< Enable 8 bit types in storage buffers.
+    bool storage_buffer_16bit = false;         ///< Enable 16 bit types in storage buffers.
+    bool shader_subgroup_extended_types = false; ///< Enable the extended subgroup operation types.
 };
 
 /// @brief Creation parameters of a Context.
@@ -169,6 +175,22 @@ public:
 
     /// @brief Returns true if a ray tracing pipeline was requested.
     bool has_ray_tracing_pipeline() const { return info_.device_features.ray_tracing_pipeline; }
+
+    /// @brief Returns information about the selected physical device.
+    PhysicalDeviceInfo physical_device_info() const { return physical_device_info_; }
+
+    /// @brief Returns the timestamp period of the selected device, in nanoseconds.
+    float timestamp_period() const {
+        return physical_device_.getProperties().limits.timestampPeriod;
+    }
+
+    /// @brief Returns the memory properties of the selected device.
+    vk::PhysicalDeviceMemoryProperties memory_properties() const {
+        return physical_device_.getMemoryProperties();
+    }
+
+    /// @brief Returns the parameters the context was created with.
+    const ContextInfo& info() const { return info_; }
 
     /// @brief Sets a debug name on a Vulkan object. No-op without debug utils.
     /// @param type Object type.
@@ -632,6 +654,7 @@ private:
     vk::SurfaceKHR surface_;
     vk::DebugUtilsMessengerEXT debug_messenger_;
     vk::PhysicalDevice physical_device_;
+    PhysicalDeviceInfo physical_device_info_;
     vk::Device device_;
     uint32_t api_version_ = VK_API_VERSION_1_3;
     vk::Queue graphics_queue_;

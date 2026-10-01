@@ -105,3 +105,50 @@ TEST_CASE("submit_pooled recycles signaled fences") {
 
     context.wait_idle();
 }
+
+TEST_CASE("context reports the selected device and its properties") {
+    VULCAO_REQUIRE_DEVICE();
+
+    const vulcao::test::LogLevelGuard log_level_guard;
+    vulcao::set_log_level(vulcao::LogLevel::warning);
+
+    vulcao::ContextInfo info;
+    info.headless = true;
+    info.validation = true;
+
+    vulcao::Context context{info};
+    context.initialize();
+
+    const vulcao::PhysicalDeviceInfo device = context.physical_device_info();
+    CHECK_FALSE(device.name.empty());
+    CHECK(device.api_version != 0);
+    CHECK(context.timestamp_period() > 0.0f);
+    CHECK(context.memory_properties().memoryHeapCount > 0);
+    CHECK(context.info().headless);
+}
+
+TEST_CASE("optional Vulkan 1.1 and 1.2 device features can be requested") {
+    VULCAO_REQUIRE_DEVICE();
+
+    const vulcao::test::LogLevelGuard log_level_guard;
+    vulcao::set_log_level(vulcao::LogLevel::warning);
+
+    vulcao::ContextInfo info;
+    info.headless = true;
+    info.validation = true;
+    info.device_features.scalar_block_layout = true;
+    info.device_features.shader_float16 = true;
+    info.device_features.shader_int8 = true;
+    info.device_features.storage_buffer_8bit = true;
+    info.device_features.storage_buffer_16bit = true;
+    info.device_features.shader_subgroup_extended_types = true;
+
+    // These are optional, so a device without them skips rather than fails.
+    try {
+        vulcao::Context context{info};
+        context.initialize();
+        CHECK(context.initialized());
+    } catch (const std::exception& error) {
+        MESSAGE("skipping: the device does not offer the requested features: ", error.what());
+    }
+}

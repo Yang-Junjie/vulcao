@@ -252,6 +252,7 @@ void Context::pick_physical_device() {
     });
 
     selector.set_required_features_11(vk::PhysicalDeviceVulkan11Features{
+        .storageBuffer16BitAccess = wanted.storage_buffer_16bit ? VK_TRUE : VK_FALSE,
         .shaderDrawParameters = wanted.shader_draw_parameters ? VK_TRUE : VK_FALSE,
     });
 
@@ -264,30 +265,6 @@ void Context::pick_physical_device() {
         selector.add_required_extension_features(
             vk::PhysicalDeviceTimelineSemaphoreFeatures{.timelineSemaphore = VK_TRUE});
 
-    if (wanted.descriptor_indexing)
-        selector.add_required_extension_features(vk::PhysicalDeviceDescriptorIndexingFeatures{
-            .shaderInputAttachmentArrayDynamicIndexing = VK_TRUE,
-            .shaderUniformTexelBufferArrayDynamicIndexing = VK_TRUE,
-            .shaderStorageTexelBufferArrayDynamicIndexing = VK_TRUE,
-            .shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
-            .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-            .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
-            .shaderStorageImageArrayNonUniformIndexing = VK_TRUE,
-            .shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE,
-            .shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE,
-            .shaderStorageTexelBufferArrayNonUniformIndexing = VK_TRUE,
-            .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
-            .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-            .descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
-            .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
-            .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE,
-            .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE,
-            .descriptorBindingUpdateUnusedWhilePending = VK_TRUE,
-            .descriptorBindingPartiallyBound = VK_TRUE,
-            .descriptorBindingVariableDescriptorCount = VK_TRUE,
-            .runtimeDescriptorArray = VK_TRUE,
-        });
-
     // Ray tracing builds on acceleration structures, which in turn require
     // buffer device addresses, so requesting a higher level enables the lower
     // ones instead of making the caller repeat the whole dependency chain.
@@ -296,9 +273,47 @@ void Context::pick_physical_device() {
     const bool wants_buffer_device_address =
         wanted.buffer_device_address || wants_acceleration_structure;
 
-    if (wants_buffer_device_address)
-        selector.add_required_extension_features(
-            vk::PhysicalDeviceBufferDeviceAddressFeatures{.bufferDeviceAddress = VK_TRUE});
+    const bool wants_vulkan12 =
+        wanted.descriptor_indexing || wanted.scalar_block_layout || wanted.shader_float16 ||
+        wanted.shader_int8 || wanted.storage_buffer_8bit || wanted.storage_buffer_16bit ||
+        wanted.shader_subgroup_extended_types || wants_buffer_device_address;
+
+    if (wants_vulkan12) {
+        // All Vulkan 1.2 features live in one structure: the driver rejects the
+        // same structure type twice in the chain, so they cannot be added one at
+        // a time the way the extension feature structs are.
+        vk::PhysicalDeviceVulkan12Features features{};
+        if (wanted.descriptor_indexing) {
+            features.shaderInputAttachmentArrayDynamicIndexing = VK_TRUE;
+            features.shaderUniformTexelBufferArrayDynamicIndexing = VK_TRUE;
+            features.shaderStorageTexelBufferArrayDynamicIndexing = VK_TRUE;
+            features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+            features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+            features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+            features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+            features.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
+            features.shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE;
+            features.shaderStorageTexelBufferArrayNonUniformIndexing = VK_TRUE;
+            features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
+            features.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+            features.descriptorBindingPartiallyBound = VK_TRUE;
+            features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+            features.runtimeDescriptorArray = VK_TRUE;
+        }
+        features.scalarBlockLayout = wanted.scalar_block_layout ? VK_TRUE : VK_FALSE;
+        features.shaderFloat16 = wanted.shader_float16 ? VK_TRUE : VK_FALSE;
+        features.shaderInt8 = wanted.shader_int8 ? VK_TRUE : VK_FALSE;
+        features.storageBuffer8BitAccess = wanted.storage_buffer_8bit ? VK_TRUE : VK_FALSE;
+        features.shaderSubgroupExtendedTypes =
+            wanted.shader_subgroup_extended_types ? VK_TRUE : VK_FALSE;
+        features.bufferDeviceAddress = wants_buffer_device_address ? VK_TRUE : VK_FALSE;
+        selector.set_required_features_12(features);
+    }
 
     if (wants_acceleration_structure) {
         selector.add_required_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
@@ -334,6 +349,13 @@ void Context::pick_physical_device() {
     physical_device_ = vk::PhysicalDevice{vkb_physical_device_.physical_device};
 
     const vk::PhysicalDeviceProperties properties = physical_device_.getProperties();
+    physical_device_info_ = PhysicalDeviceInfo{
+        .name = properties.deviceName.data(),
+        .type = properties.deviceType,
+        .vendor_id = properties.vendorID,
+        .driver_version = properties.driverVersion,
+        .api_version = properties.apiVersion,
+    };
     log(LogLevel::info, "GPU: " + std::string(properties.deviceName.data()) + " (" +
                             device_type_name(static_cast<VkPhysicalDeviceType>(properties.deviceType)) +
                             ")");
