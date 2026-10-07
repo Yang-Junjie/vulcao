@@ -115,7 +115,8 @@ public:
 
     /// @brief Recreates the swapchain and the per-image synchronization objects.
     /// @param extent New swapchain extent.
-    void recreate_swapchain(vk::Extent2D extent);
+    /// @return False if the requested or current surface extent is zero; retry after restoration.
+    bool recreate_swapchain(vk::Extent2D extent);
 
     /// @brief Returns true if the manager holds valid objects.
     bool valid() const { return static_cast<bool>(pool_); }

@@ -155,9 +155,10 @@ public:
 
     /// @brief Recreates the swapchain with a new extent.
     /// @param extent New swapchain extent.
+    /// @return False if the requested or current surface extent is zero; retry after restoration.
     /// @throws std::runtime_error if the context is not initialized, is headless, or the
     ///         swapchain cannot be created.
-    void recreate_swapchain(vk::Extent2D extent);
+    bool recreate_swapchain(vk::Extent2D extent);
 
     /// @brief Waits for the device to become idle.
     void wait_idle();
@@ -543,6 +544,9 @@ public:
     /// @brief Returns the queue family index used for graphics.
     uint32_t graphics_queue_family_index() const { return graphics_queue_family_index_; }
 
+    /// @brief Returns the queue family index used for presentation.
+    uint32_t present_queue_family_index() const { return present_queue_family_index_; }
+
     /// @brief Returns the queue family index used for compute.
     uint32_t compute_queue_family_index() const { return compute_queue_family_index_; }
 
@@ -668,6 +672,7 @@ private:
     vk::Queue compute_queue_;
     vk::Queue transfer_queue_;
     uint32_t graphics_queue_family_index_ = 0;
+    uint32_t present_queue_family_index_ = 0;
     uint32_t compute_queue_family_index_ = 0;
     uint32_t transfer_queue_family_index_ = 0;
     bool has_compute_queue_ = false;

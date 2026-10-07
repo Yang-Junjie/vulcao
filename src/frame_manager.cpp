@@ -151,9 +151,11 @@ void FrameManager::wait_idle() {
     context_.wait_idle();
 }
 
-void FrameManager::recreate_swapchain(vk::Extent2D extent) {
-    context_.recreate_swapchain(extent);
+bool FrameManager::recreate_swapchain(vk::Extent2D extent) {
+    if (!context_.recreate_swapchain(extent))
+        return false;
     create_render_finished_semaphores();
+    return true;
 }
 
 }

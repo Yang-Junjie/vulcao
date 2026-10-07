@@ -53,6 +53,7 @@ add_library(vulcao STATIC
     src/sampler.cpp
     src/semaphore.cpp
     src/shader_module.cpp
+    src/swapchain.cpp
     src/vma_impl.cpp
 )
 

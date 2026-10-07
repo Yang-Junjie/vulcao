@@ -114,6 +114,8 @@ void Context::initialize(vk::SurfaceKHR surface, vk::Extent2D extent, SwapchainI
         throw std::runtime_error("Context::initialize called twice");
     if (info_.headless)
         throw std::runtime_error("Context::initialize: the context was created headless");
+    if (extent.width == 0 || extent.height == 0)
+        throw std::runtime_error("Context::initialize: swapchain extent must be non-zero");
 
     surface_ = surface;
     swapchain_info_ = std::move(swapchain_info);
@@ -365,9 +367,12 @@ void Context::create_device() {
     graphics_queue_family_index_ =
         detail::check(vkb_device_.get_queue_index(vkb::QueueType::graphics), "get graphics queue index");
     graphics_queue_ = vk::Queue{detail::check(vkb_device_.get_queue(vkb::QueueType::graphics), "get graphics queue")};
-    if (!info_.headless)
+    if (!info_.headless) {
         present_queue_ =
             vk::Queue{detail::check(vkb_device_.get_queue(vkb::QueueType::present), "get present queue")};
+        present_queue_family_index_ =
+            detail::check(vkb_device_.get_queue_index(vkb::QueueType::present), "get present queue index");
+    }
 
     if (info_.separate_compute_queue) {
         const vkb::Result<uint32_t> index = vkb_device_.get_queue_index(vkb::QueueType::compute);
@@ -395,8 +400,7 @@ void Context::create_device() {
 
     std::string present = "none";
     if (!info_.headless)
-        present = std::to_string(detail::check(vkb_device_.get_queue_index(vkb::QueueType::present),
-                                       "get present queue index"));
+        present = std::to_string(present_queue_family_index_);
 
     log(LogLevel::info, "queues: graphics=" + std::to_string(graphics_queue_family_index_) +
                             ", present=" + present + ", compute=" +
@@ -412,6 +416,10 @@ void Context::create_allocator() {
 }
 
 void Context::create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D extent) {
+    const vk::SurfaceCapabilitiesKHR capabilities = physical_device_.getSurfaceCapabilitiesKHR(surface_);
+    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0)
+        throw std::runtime_error("create swapchain: surface extent must be non-zero");
+
     vkb::SwapchainBuilder builder{vkb_device_, surface_};
     builder.set_desired_extent(extent.width, extent.height);
 
@@ -472,13 +480,19 @@ void Context::destroy_swapchain_resources() {
     swapchain_images_.clear();
 }
 
-void Context::recreate_swapchain(vk::Extent2D extent) {
+bool Context::recreate_swapchain(vk::Extent2D extent) {
     if (!initialized())
         throw std::runtime_error("Context::recreate_swapchain before initialize");
     if (info_.headless)
         throw std::runtime_error("Context::recreate_swapchain: the context is headless");
+    if (extent.width == 0 || extent.height == 0)
+        return false;
 
     device_.waitIdle();
+
+    const vk::SurfaceCapabilitiesKHR capabilities = physical_device_.getSurfaceCapabilitiesKHR(surface_);
+    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0)
+        return false;
 
     destroy_swapchain_resources();
 
@@ -486,6 +500,7 @@ void Context::recreate_swapchain(vk::Extent2D extent) {
     create_swapchain(swapchain_, extent);
     if (old_swapchain.swapchain)
         vkb::destroy_swapchain(old_swapchain);
+    return true;
 }
 
 void Context::submit_and_wait(vk::CommandBuffer cmd) {
