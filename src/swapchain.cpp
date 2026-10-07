@@ -135,7 +135,7 @@ void Swapchain::destroy() {
     surface_ = nullptr;
     swapchain_ = nullptr;
     format_ = vk::Format::eUndefined;
-    extent_ = {};
+    extent_ = vk::Extent2D{};
 }
 
 } // namespace vulcao
