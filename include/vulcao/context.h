@@ -96,22 +96,12 @@ struct PhysicalDeviceInfo {
     uint32_t api_version = 0;                            ///< Highest supported Vulkan version.
 };
 
-/// @brief Creation parameters of the swapchain.
-struct SwapchainInfo {
-    /// @brief Surface formats to try, in priority order.
-    std::vector<vk::SurfaceFormatKHR> formats{
-        vk::SurfaceFormatKHR{.format = vk::Format::eB8G8R8A8Srgb,
-                             .colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear}};
-    /// @brief Present modes to try, in priority order.
-    std::vector<vk::PresentModeKHR> present_modes{
-        vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo};
-    /// @brief Extra usage flags to request for the swapchain images.
-    vk::ImageUsageFlags extra_usage;
-    /// @brief Minimum image count, or 0 to let the implementation decide.
-    uint32_t min_image_count = 0;
-};
-
-/// @brief Owns the Vulkan instance, device, swapchain, command pool and VMA allocator.
+/// @brief Owns the Vulkan instance, device, queues, command pool and VMA allocator.
+///
+/// The context does not own a presentation surface or a swapchain. A surface
+/// handed to initialize() is borrowed for the duration of device selection and
+/// must outlive the context; the caller (typically a WindowPresenter) owns it
+/// and the swapchain built on it.
 /// @note immediate(), upload() and download() share an internal command buffer and
 ///       staging buffer and are therefore not thread safe. upload() and download()
 ///       copy through that one staging buffer synchronously, so the host bytes are
@@ -140,25 +130,19 @@ public:
     Context(Context&&) = delete;
     Context& operator=(Context&&) = delete;
 
-    /// @brief Picks a device, creates the allocator, swapchain and command pool.
-    /// @param surface Presentation surface.
-    /// @param extent Initial swapchain extent.
-    /// @param swapchain_info Swapchain creation parameters.
-    /// @throws std::runtime_error if already initialized or created headless.
-    void initialize(vk::SurfaceKHR surface, vk::Extent2D extent, SwapchainInfo swapchain_info = {});
+    /// @brief Picks a device, creates the allocator, command pool and queues.
+    /// @param surface Presentation surface, borrowed for device selection only.
+    ///        The context neither owns nor destroys it, and it must stay valid
+    ///        for the lifetime of the context. No swapchain is created here.
+    /// @throws std::runtime_error if already initialized, created headless, or
+    ///         the surface is null.
+    void initialize(vk::SurfaceKHR surface);
 
     /// @brief Picks a device and creates the allocator, command pool and queues without a swapchain.
     ///
     /// Requires ContextInfo::headless. No surface is created and present_queue() stays null.
     /// @throws std::runtime_error if already initialized or ContextInfo::headless is false.
     void initialize();
-
-    /// @brief Recreates the swapchain with a new extent.
-    /// @param extent New swapchain extent.
-    /// @return False if the requested or current surface extent is zero; retry after restoration.
-    /// @throws std::runtime_error if the context is not initialized, is headless, or the
-    ///         swapchain cannot be created.
-    bool recreate_swapchain(vk::Extent2D extent);
 
     /// @brief Waits for the device to become idle.
     void wait_idle();
@@ -520,7 +504,9 @@ public:
     /// @brief Returns the Vulkan instance.
     vk::Instance instance() const { return instance_; }
 
-    /// @brief Returns the presentation surface.
+    /// @brief Returns the presentation surface, or null when headless.
+    ///
+    /// Borrowed: the context neither owns nor destroys it.
     vk::SurfaceKHR surface() const { return surface_; }
 
     /// @brief Returns the selected physical device.
@@ -569,21 +555,6 @@ public:
     /// Buffer::create / Image::create_2d.
     std::vector<uint32_t> transfer_sharing_families() const;
 
-    /// @brief Returns the swapchain.
-    vk::SwapchainKHR swapchain() const { return swapchain_; }
-
-    /// @brief Returns the swapchain image format.
-    vk::Format swapchain_format() const { return swapchain_format_; }
-
-    /// @brief Returns the swapchain extent.
-    vk::Extent2D swapchain_extent() const { return swapchain_extent_; }
-
-    /// @brief Returns the swapchain images.
-    const std::vector<vk::Image>& swapchain_images() const { return swapchain_images_; }
-
-    /// @brief Returns the swapchain image views.
-    const std::vector<vk::ImageView>& swapchain_image_views() const { return swapchain_image_views_; }
-
     /// @brief Returns the command pool used for one-time commands.
     vk::CommandPool command_pool() const { return command_pool_.handle(); }
 
@@ -630,14 +601,8 @@ private:
     /// @brief Creates the VMA allocator.
     void create_allocator();
 
-    /// @brief Creates the swapchain and its image views.
-    void create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D extent);
-
     /// @brief Creates the command pool and the immediate command buffer.
     void create_command_pool();
-
-    /// @brief Destroys swapchain images and image views.
-    void destroy_swapchain_resources();
 
     /// @brief Returns a host visible staging buffer that holds at least size bytes.
     ///
@@ -659,9 +624,9 @@ private:
     vkb::Instance vkb_instance_;
     vkb::PhysicalDevice vkb_physical_device_;
     vkb::Device vkb_device_;
-    vkb::Swapchain vkb_swapchain_;
 
     vk::Instance instance_;
+    /// @brief Borrowed presentation surface; never destroyed by the context.
     vk::SurfaceKHR surface_;
     vk::DebugUtilsMessengerEXT debug_messenger_;
     vk::PhysicalDevice physical_device_;
@@ -682,13 +647,6 @@ private:
     Allocator allocator_;
     Buffer staging_;
     ContextInfo info_;
-
-    vk::SwapchainKHR swapchain_;
-    vk::Format swapchain_format_ = vk::Format::eUndefined;
-    vk::Extent2D swapchain_extent_{};
-    std::vector<vk::Image> swapchain_images_;
-    std::vector<vk::ImageView> swapchain_image_views_;
-    SwapchainInfo swapchain_info_;
 
     CommandPool command_pool_;
     CommandBuffer immediate_command_buffer_;

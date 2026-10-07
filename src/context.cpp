@@ -77,8 +77,6 @@ Context::~Context() {
             command_pool_.destroy();
         }
 
-        destroy_swapchain_resources();
-
         if (transfer_started_) {
             // Release the in-flight uploads first: their command buffers have to
             // go back to the pool while it still exists, and their staging
@@ -91,13 +89,9 @@ Context::~Context() {
         staging_ = Buffer{};
         allocator_.destroy();
 
-        if (vkb_swapchain_.swapchain)
-            vkb::destroy_swapchain(vkb_swapchain_);
         vkb::destroy_device(vkb_device_);
     }
 
-    if (surface_)
-        instance_.destroySurfaceKHR(surface_);
     if (debug_messenger_) {
         const auto destroy_messenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
             instance_.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
@@ -109,20 +103,20 @@ Context::~Context() {
         vkb::destroy_instance(vkb_instance_);
 }
 
-void Context::initialize(vk::SurfaceKHR surface, vk::Extent2D extent, SwapchainInfo swapchain_info) {
+void Context::initialize(vk::SurfaceKHR surface) {
     if (initialized())
         throw std::runtime_error("Context::initialize called twice");
     if (info_.headless)
         throw std::runtime_error("Context::initialize: the context was created headless");
-    if (extent.width == 0 || extent.height == 0)
-        throw std::runtime_error("Context::initialize: swapchain extent must be non-zero");
+    if (!surface)
+        throw std::runtime_error("Context::initialize: a valid surface is required");
 
+    // Borrowed for device selection: the context never destroys it and builds
+    // no swapchain of its own.
     surface_ = surface;
-    swapchain_info_ = std::move(swapchain_info);
     pick_physical_device();
     create_device();
     create_allocator();
-    create_swapchain({}, extent);
     create_command_pool();
 }
 
@@ -415,55 +409,6 @@ void Context::create_allocator() {
     allocator_.create(instance_, physical_device_, device_, kApiVersion, buffer_device_address);
 }
 
-void Context::create_swapchain(vk::SwapchainKHR oldSwapchain, vk::Extent2D extent) {
-    const vk::SurfaceCapabilitiesKHR capabilities = physical_device_.getSurfaceCapabilitiesKHR(surface_);
-    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0)
-        throw std::runtime_error("create swapchain: surface extent must be non-zero");
-
-    vkb::SwapchainBuilder builder{vkb_device_, surface_};
-    builder.set_desired_extent(extent.width, extent.height);
-
-    if (!swapchain_info_.formats.empty()) {
-        builder.set_desired_format(swapchain_info_.formats.front());
-        for (size_t i = 1; i < swapchain_info_.formats.size(); ++i)
-            builder.add_fallback_format(swapchain_info_.formats[i]);
-    }
-
-    if (!swapchain_info_.present_modes.empty()) {
-        builder.set_desired_present_mode(
-            static_cast<VkPresentModeKHR>(swapchain_info_.present_modes.front()));
-        for (size_t i = 1; i < swapchain_info_.present_modes.size(); ++i)
-            builder.add_fallback_present_mode(
-                static_cast<VkPresentModeKHR>(swapchain_info_.present_modes[i]));
-    }
-
-    if (swapchain_info_.extra_usage != vk::ImageUsageFlags{})
-        builder.add_image_usage_flags(static_cast<VkImageUsageFlags>(swapchain_info_.extra_usage));
-
-    if (swapchain_info_.min_image_count > 0)
-        builder.set_desired_min_image_count(swapchain_info_.min_image_count);
-
-    if (oldSwapchain)
-        builder.set_old_swapchain(oldSwapchain);
-
-    vkb_swapchain_ = detail::check(builder.build(), "create swapchain");
-
-    swapchain_ = vk::SwapchainKHR{vkb_swapchain_.swapchain};
-    swapchain_format_ = static_cast<vk::Format>(vkb_swapchain_.image_format);
-    swapchain_extent_ = vk::Extent2D{vkb_swapchain_.extent.width, vkb_swapchain_.extent.height};
-
-    auto images = detail::check(vkb_swapchain_.get_images(), "get swapchain images");
-    swapchain_images_.assign(images.begin(), images.end());
-
-    auto views = detail::check(vkb_swapchain_.get_image_views(), "create swapchain image views");
-    swapchain_image_views_.assign(views.begin(), views.end());
-
-    log(LogLevel::info, "swapchain: " + std::to_string(swapchain_extent_.width) + "x" +
-                            std::to_string(swapchain_extent_.height) + ", " +
-                            std::to_string(swapchain_images_.size()) + " images, " +
-                            vk::to_string(swapchain_format_));
-}
-
 void Context::create_command_pool() {
     command_pool_ = CommandPool::create(device_, graphics_queue_family_index_,
                                         vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
@@ -471,36 +416,6 @@ void Context::create_command_pool() {
     immediate_command_buffer_ = command_pool_.allocate(vk::CommandBufferLevel::ePrimary,
                                                        debug_utils_enabled_);
     submit_fence_ = Fence::create(device_);
-}
-
-void Context::destroy_swapchain_resources() {
-    for (auto view : swapchain_image_views_)
-        device_.destroyImageView(view);
-    swapchain_image_views_.clear();
-    swapchain_images_.clear();
-}
-
-bool Context::recreate_swapchain(vk::Extent2D extent) {
-    if (!initialized())
-        throw std::runtime_error("Context::recreate_swapchain before initialize");
-    if (info_.headless)
-        throw std::runtime_error("Context::recreate_swapchain: the context is headless");
-    if (extent.width == 0 || extent.height == 0)
-        return false;
-
-    device_.waitIdle();
-
-    const vk::SurfaceCapabilitiesKHR capabilities = physical_device_.getSurfaceCapabilitiesKHR(surface_);
-    if (capabilities.currentExtent.width == 0 || capabilities.currentExtent.height == 0)
-        return false;
-
-    destroy_swapchain_resources();
-
-    vkb::Swapchain old_swapchain = vkb_swapchain_;
-    create_swapchain(swapchain_, extent);
-    if (old_swapchain.swapchain)
-        vkb::destroy_swapchain(old_swapchain);
-    return true;
 }
 
 void Context::submit_and_wait(vk::CommandBuffer cmd) {

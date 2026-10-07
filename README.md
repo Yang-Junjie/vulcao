@@ -184,7 +184,10 @@ the VMA headers.
 #include <vulcao/shader_module.h>
 
 vulcao::Context ctx{{.app_name = "my-app"}};
-ctx.initialize(surface, extent);
+// The surface is borrowed for device selection only: vulcao neither owns nor
+// destroys it, and creates no swapchain. Build the swapchain with
+// vulcao::Swapchain from wherever the surface is owned.
+ctx.initialize(surface);
 
 auto shader = vulcao::ShaderModule::create_from_file(
     ctx.device(), vk::ShaderStageFlagBits::eCompute, "reduce.comp.spv");

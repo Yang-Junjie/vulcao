@@ -27,10 +27,9 @@ TEST_CASE("headless context runs commands without a surface or swapchain") {
 
     REQUIRE(context.initialized());
     CHECK(context.headless());
-    CHECK(!context.swapchain());
+    CHECK(!context.surface());
     CHECK(!context.present_queue());
     CHECK(context.graphics_queue());
-    CHECK_THROWS(context.recreate_swapchain(vk::Extent2D{32, 32}));
 
     const std::vector<uint32_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     const vk::DeviceSize bytes = data.size() * sizeof(uint32_t);

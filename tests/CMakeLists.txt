@@ -13,8 +13,10 @@ add_executable(vulcao_tests
     rendering_test.cpp
     resource_test.cpp
     specialization_test.cpp
+    surface_test.cpp
     transfer_test.cpp
     vertex_layout_test.cpp
+    window_presenter_test.cpp
 )
 
 target_include_directories(vulcao_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
