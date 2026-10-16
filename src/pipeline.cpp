@@ -121,11 +121,15 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .patchControlPoints = info.patch_control_points,
     };
 
-    const std::vector<vk::DynamicState> dynamic_states =
+    std::vector<vk::DynamicState> dynamic_states =
         info.dynamic_states.empty()
             ? std::vector<vk::DynamicState>{vk::DynamicState::eViewportWithCount,
                                             vk::DynamicState::eScissorWithCount}
             : info.dynamic_states;
+    if (info.depth_bias_dynamic &&
+        std::find(dynamic_states.begin(), dynamic_states.end(), vk::DynamicState::eDepthBias) ==
+            dynamic_states.end())
+        dynamic_states.push_back(vk::DynamicState::eDepthBias);
     const auto has_dynamic_state = [&](vk::DynamicState state) {
         return std::find(dynamic_states.begin(), dynamic_states.end(), state) != dynamic_states.end();
     };
@@ -146,6 +150,8 @@ Pipeline Pipeline::create_graphics_impl(vk::Device device,
         .cullMode = info.cull_mode,
         .frontFace = info.front_face,
         .depthBiasEnable = info.depth_bias_enable ? VK_TRUE : VK_FALSE,
+        .depthBiasConstantFactor = info.depth_bias_constant,
+        .depthBiasSlopeFactor = info.depth_bias_slope,
         .lineWidth = info.line_width,
     };
 

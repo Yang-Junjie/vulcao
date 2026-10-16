@@ -31,6 +31,9 @@ struct GraphicsPipelineInfo {
     bool depth_write = true;                          ///< Enable depth writes (when depth testing is on).
     vk::CompareOp depth_compare = vk::CompareOp::eLess; ///< Depth compare operation.
     bool depth_bias_enable = false;                   ///< Enable depth bias.
+    bool depth_bias_dynamic = false;                  ///< Set bias factors dynamically while recording.
+    float depth_bias_constant = 0.0f;                 ///< Constant depth-bias factor.
+    float depth_bias_slope = 0.0f;                    ///< Slope-scaled depth-bias factor.
     bool depth_bounds_test = false;                   ///< Enable the depth bounds test.
     float min_depth_bounds = 0.0f;                    ///< Lower depth bounds.
     float max_depth_bounds = 1.0f;                    ///< Upper depth bounds.
